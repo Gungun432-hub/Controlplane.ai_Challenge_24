@@ -7,3 +7,4 @@ data/ledger.jsonl
 data/telemetry.jsonl
 .DS_Store
 *.egg-info/
+data/calibration.json
