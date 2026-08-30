@@ -5,16 +5,15 @@ response before it reaches a user, and spends oversight in proportion to that
 price. Most enterprise AI checking is uniform and retrospective: every response
 is treated the same, and failures surface in an audit weeks later, after someone
 has already acted on the answer. ControlPlane inverts that. It scores each
-response in the live path across three dimensions - performance, cost and
-responsibility - combines that with what the answer is about to do downstream,
+response in the live path across three dimensions — performance, cost and
+responsibility — combines that with what the answer is about to do downstream,
 and routes on the result.
 
-The design principle behind it is operational rather than theoretical. Checking
-everything makes an assistant slow and irritating, and a safety system that
-irritates people gets switched off. A safety system that is switched off provides
-zero safety. So ControlPlane lets most traffic through untouched and reserves
-real scrutiny, and real cost, for the small fraction of responses where being
-wrong is expensive.
+The design principle is operational rather than theoretical. Checking everything
+makes an assistant slow and irritating, and a safety system that irritates people
+gets switched off. A safety system that is switched off provides zero safety. So
+ControlPlane lets most traffic through untouched and reserves real scrutiny, and
+real cost, for the small fraction of responses where being wrong is expensive.
 
 Built for the Accenture Innovation Challenge 2026, Round 2, Problem Track 1
 (ControlPlane.ai), by team Challenge_24.
@@ -22,10 +21,10 @@ Built for the Accenture Innovation Challenge 2026, Round 2, Problem Track 1
 ## Running this without an API key
 
 **You do not need an API key to run this project.** Clone it, install the
-requirements, start the server, and everything works: the dashboard, all
-scenarios, the full evaluation harness. ControlPlane ships an offline provider
-so a reviewer can verify every claim in this document on a laptop with no
-account, no billing and no network.
+requirements, start the server, and everything works: the console, all scenarios,
+the full evaluation harness. ControlPlane ships an offline provider so a reviewer
+can verify every claim in this document on a laptop with no account, no billing
+and no network.
 
 There are two modes, and the service tells you which one it is in at
 `GET /health`.
@@ -33,9 +32,9 @@ There are two modes, and the service tells you which one it is in at
 | Mode | Setup | What runs | What is different |
 | --- | --- | --- | --- |
 | **Offline** (default) | nothing | detectors, routing, policy, ledger, telemetry, evaluation | embeddings come from a local hashing vectoriser; self-consistency and the bias probe abstain, because neither is meaningful without a real model to resample |
-| **Live** | your own Gemini key in `.env` | all of the above, plus Gemini embeddings and LLM-as-judge | the two abstaining detectors activate |
+| **Live** | your own Gemini key in `.env` | all of the above, plus live generation, Gemini embeddings and LLM-as-judge | the two abstaining detectors activate |
 
-If you want the live path, the key is **yours, not ours** - get a free one at
+If you want the live path, the key is **yours, not ours** — get a free one at
 <https://aistudio.google.com/apikey>, put it in a local `.env`, and set
 `CONTROLPLANE_PROVIDER=gemini`. No credential of ours is in this repository, and
 none is needed to evaluate it.
@@ -47,271 +46,316 @@ they cannot.
 ## Table of contents
 
 - Running this without an API key
+- Quick start
 - Requirements
 - Installation
 - Configuration
+- Running the demo
+- The console
 - How it works
 - Key features
 - Where AI is used, and where it deliberately is not
-- Acceptance criteria we set ourselves
+- Coverage against the brief
 - Evaluation
-- Runtime telemetry
-- Scenario suite
+- Capacity
+- API reference
 - Design decisions and tradeoffs
-- Limitations and what we did not build
+- Limitations
 - Roadmap
 - Troubleshooting
 - FAQ
 - Maintainers
 
-## Requirements
+## Quick start
 
-Python 3.10 or newer. All Python dependencies are listed in
-`requirements.txt` and install with pip:
+Three commands, no API key, about ninety seconds:
 
-- `fastapi` and `uvicorn` - HTTP surface
-- `pydantic` - request validation
-- `pyyaml` - policy loading
-- `numpy` and `scikit-learn` - embeddings and vector maths
-- `httpx` - provider calls
-
-**No API key, no account and no network access are required to run or evaluate
-this project.** The offline provider is the default and is a real code path, not
-a mock: the same detectors, the same router, the same ledger. A Google AI Studio
-key is optional and enables the live path only.
-
-## Installation
-
-```
-git clone https://github.com/<your-account>/controlplane.git
-cd controlplane
-python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
+```bash
+git clone https://github.com/Gungun432-hub/Controlplane.ai_Challenge_24.git
+cd Controlplane.ai_Challenge_24
 pip install -r requirements.txt
 uvicorn controlplane.app:app --port 8000
 ```
 
-That is the whole setup. No `.env`, no key, no further configuration.
+Open <http://127.0.0.1:8000>. The console loads already populated, because on a
+fresh clone it runs a burst of representative traffic through the real engine so
+you are not looking at zeros.
 
-Open http://127.0.0.1:8000. On a fresh clone the ledger is empty, so the
-dashboard runs a short burst of representative traffic through the engine on
-first load and arrives populated - fourteen requests across three use-case
-profiles, showing passes, escalations and one hard block. Those are real
-evaluations, not fixtures: the same detectors, scorer, router and ledger entries
-as any other request. The scenario buttons along the bottom then let you drive
-specific cases, and the policy dropdowns let you re-run the same response under
-a different profile or jurisdiction.
+To see live model generation, add a key — see [Configuration](#configuration).
 
-Interactive API docs are at http://127.0.0.1:8000/docs.
+## Requirements
 
-Confirm which mode you are in. `/health` explains itself rather than leaving you
-to guess why it is in the mode it is in:
+Python 3.10 or newer. Dependencies are in `requirements.txt`:
 
+- `fastapi`, `uvicorn` — HTTP surface
+- `pydantic` — request validation
+- `pyyaml` — policy loading
+- `numpy`, `scikit-learn` — embeddings and vector maths
+- `httpx` — provider calls
+
+**No API key, account or network access is required to run or evaluate this
+project.** The offline provider is the default and is a real code path, not a
+mock: the same detectors, the same router, the same ledger. A Google AI Studio
+key is optional and enables live generation only.
+
+## Installation
+
+Clone and install into a virtual environment:
+
+```bash
+git clone https://github.com/Gungun432-hub/Controlplane.ai_Challenge_24.git
+cd Controlplane.ai_Challenge_24
+python -m venv .venv
 ```
-curl http://127.0.0.1:8000/health
+
+Activate it.
+
+On **macOS or Linux**:
+
+```bash
+source .venv/bin/activate
 ```
 
-```json
-{"status":"ok","provider":"offline","live":false,
- "config":{"env_file_found":false,"provider_configured":"offline",
-           "api_key_present":false,
-           "reason":"no .env file ... Offline is the intended default"}}
+On **Windows**:
+
+```bat
+.venv\Scripts\activate
 ```
 
-To reproduce every result quoted in this document:
+Then install and run:
 
+```bash
+pip install -r requirements.txt
+uvicorn controlplane.app:app --port 8000
 ```
-python eval/run_eval.py --sweep      # evaluation, confusion matrix, threshold sweeps
-python demo/run_scenarios.py         # the scenario suite, against a running server
-```
+
+The console is at <http://127.0.0.1:8000> and interactive API documentation at
+<http://127.0.0.1:8000/docs>.
 
 ## Configuration
 
-**This entire section is optional.** Skip it and the defaults run offline.
+**This section is optional.** Skip it and everything runs offline.
 
-To enable the live path, copy `.env.example` to `.env` and add your own key.
-`.env` is gitignored and is never committed; `.env.example` holds the same keys
-with empty values so you can see the shape of the config without anyone's
-credentials.
+To enable live model generation, copy the example file:
 
-- `CONTROLPLANE_PROVIDER` - `offline` (default) or `gemini`
-- `GEMINI_API_KEY` - your own key, required only when the provider is `gemini`.
-  Free keys are available at <https://aistudio.google.com/apikey>
-- `GEMINI_JUDGE_MODEL` - default `gemini-flash-latest`
-- `GEMINI_EMBED_MODEL` - default `text-embedding-004`
-- `LEDGER_SIGNING_KEY` - HMAC key for the trust ledger; generate your own
-- `GEMINI_RPM` / `GEMINI_RPD` - generation budget, default 10/min and 180/day
-- `GEMINI_EMBED_RPM` / `GEMINI_EMBED_RPD` - embedding budget, default 60/min and
-  1200/day. Kept separate because providers meter the two independently and
-  embedding allowances are far larger
+```bash
+cp .env.example .env
+```
 
-### Choosing a model
+On **Windows**:
 
-`GEMINI_JUDGE_MODEL` defaults to `gemini-2.0-flash` rather than
-`gemini-flash-latest`. The `-latest` aliases point at the newest Flash model,
-which carries the *smallest* free-tier allowance and is the most likely to
-return 503 under load. If the configured model is unavailable the provider walks
-a short fallback chain and remembers whichever answers, so a single overloaded
-alias does not fail the request.
+```bat
+copy .env.example .env
+```
 
-`GET /api/models` lists what your key can actually call and which model the
-service settled on.
+Then open `.env` and set it to exactly this, replacing `<your key>` with your own
+key from <https://aistudio.google.com/apikey>:
 
-### Living inside a free-tier quota
+```ini
+CONTROLPLANE_PROVIDER=gemini
+GEMINI_API_KEY=<your key>
+GEMINI_JUDGE_MODEL=gemini-3.1-flash-lite
+GEMINI_EMBED_MODEL=gemini-embedding-001
+```
 
-The free tier allows single-digit requests per minute and roughly twenty per
-day. Three things keep the system inside it, and all three are the same
-behaviours the product argues for:
+Restart the server and confirm you are live:
 
-- **Seeded and demonstration traffic never touches the live provider.** The
-  first-load burst and every scenario run on the offline provider even when a
-  key is configured. Populating a dashboard is not worth a day's quota.
-- **The expensive check is rationed.** The LLM judge only runs above a
-  per-policy risk price, and grounding resolves lexically before it embeds
-  anything, so ordinary traffic makes no model call at all.
-- **Calls are rate-limited and cached.** A token bucket blocks briefly rather
-  than failing, 429s retry with backoff, deterministic completions are cached,
-  and embeddings are cached. Remaining daily headroom is shown in the console
-  header and reported by `/health` and `/api/diag`.
+```bash
+curl http://127.0.0.1:8000/health
+```
 
-Everything else is policy, and policy is data rather than code. Use-case
-profiles live in `controlplane/policies/*.yaml` and jurisdiction overlays in
-`controlplane/policies/jurisdictions/*.yaml`. Editing a YAML file and calling
-`POST /api/policies/reload` changes system behaviour with no deploy. This is a
-direct response to the brief's observation that regulatory expectations differ
-by geography and industry and that rigid, hard-coded rules age quickly.
+You want `"live": true`. The response also reports which `.env` was read and how
+much of your daily request budget remains, so a misconfiguration names itself
+rather than failing silently.
 
-Three profiles ship by default, deliberately configured to disagree with each
-other:
+`.env` is gitignored and is never committed. `.env.example` carries the same keys
+with empty values, so the shape of the configuration is public and no credential
+is.
 
-| Profile | Audience | Latency budget | Pass / repair / escalate |
+### Why these two models
+
+Defaults are chosen by free-tier allowance, not by capability:
+
+| Setting | Default | Free-tier allowance |
+| --- | --- | --- |
+| `GEMINI_JUDGE_MODEL` | `gemini-3.1-flash-lite` | 15/min, **500/day** |
+| `GEMINI_EMBED_MODEL` | `gemini-embedding-001` | 100/min, 1000/day |
+
+The full Flash models allow 5 requests per minute and **20 per day** on the free
+tier. The Lite tiers allow twenty-five times that, and this workload — short
+verification answers over retrieved text — does not need a frontier model.
+Choosing the cheapest model that is good enough is the same argument the product
+makes about oversight generally.
+
+If a configured model returns 404, 429 or a 5xx, the provider walks a fallback
+chain and remembers whichever answers, so a renamed alias or an overloaded model
+does not fail the request.
+
+To see what your key can actually call:
+
+```bash
+curl http://127.0.0.1:8000/api/models
+```
+
+### All settings
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CONTROLPLANE_PROVIDER` | `offline` | `offline` or `gemini` |
+| `GEMINI_API_KEY` | *(empty)* | required only when the provider is `gemini` |
+| `GEMINI_JUDGE_MODEL` | `gemini-3.1-flash-lite` | generation and LLM-as-judge |
+| `GEMINI_EMBED_MODEL` | `gemini-embedding-001` | embeddings for grounding |
+| `GEMINI_RPM` / `GEMINI_RPD` | `12` / `450` | generation budget |
+| `GEMINI_EMBED_RPM` / `GEMINI_EMBED_RPD` | `80` / `900` | embedding budget, metered separately by the provider |
+| `LEDGER_SIGNING_KEY` | `dev-only-not-a-secret` | HMAC key for the trust ledger; generate your own |
+
+Everything else is policy, and policy is data rather than code. Use-case profiles
+live in `controlplane/policies/*.yaml` and jurisdiction overlays in
+`controlplane/policies/jurisdictions/*.yaml`. Edit a file and reload without a
+deploy:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/policies/reload
+```
+
+Three profiles ship, deliberately configured to disagree with each other:
+
+| Profile | Audience | Latency budget | pass / repair / escalate |
 | --- | --- | --- | --- |
-| `customer_support` | external | 800 ms | 22 / 40 / 62 |
+| `customer_support` | external, regulated | 800 ms | 22 / 40 / 62 |
 | `internal_knowledge` | internal | 2500 ms | 38 / 58 / 78 |
 | `decision_support` | external, regulated | 6000 ms | 12 / 28 / 44 |
 
+## Running the demo
+
+Start the server in one terminal:
+
+```bash
+uvicorn controlplane.app:app --port 8000
+```
+
+Reproduce every number quoted in this document, in another terminal:
+
+```bash
+python eval/run_eval.py --sweep
+python eval/capacity.py --requests 1500 --workers 12
+python demo/run_scenarios.py
+```
+
+Reset the ledger and calibration between demonstrations:
+
+```bash
+make clean
+```
+
+On **Windows** without `make`:
+
+```bat
+del data\ledger.jsonl data\calibration.json
+```
+
+## The console
+
+<http://127.0.0.1:8000> is a six-tab operator console, not a static page. Every
+panel reads from the running service.
+
+- **Assistants** — three governed assistants (customer support, internal copilot,
+  decision support), each with its own retrieval corpus, policy profile and
+  latency budget. Ask a question: ControlPlane retrieves, the model generates, and
+  the gate decides what you are allowed to see. Repairs, surfaced uncertainty and
+  blocks appear as an end user would experience them, and the session-risk meter
+  climbs as a conversation accumulates risk.
+- **Policy A/B** — one identical response evaluated under two policies side by
+  side, with both sets of thresholds, weights and latency budgets on screen. The
+  clearest demonstration in the system.
+- **Review queue** — escalations and blocks ordered by risk price, with confirm
+  and false-alarm buttons. Each verdict lands in the ledger and visibly moves the
+  calibration offset.
+- **Tuning** — the measured operating-point curve with the shipped point marked.
+- **Complexity map** — each real-world complexity from the brief, what handles it,
+  the file it lives in, and a button that jumps to the tab that shows it.
+- **Ledger** — the hash chain with prev-hash links and a live integrity check.
+
 ## How it works
 
-```
+```text
   application  ──►  ControlPlane sidecar  ──►  any model (Gemini, GPT, on-prem)
                           │
                           ▼
-            risk price = P(failure) x blast radius
+            risk price = P(failure) × blast radius
                           │
         ┌─────────┬───────┴────────┬──────────┐
       PASS      REPAIR         ESCALATE     BLOCK
 ```
 
-`P(failure)` is estimated from detector signals computed on text we can see -
-the prompt, the retrieved sources, and the completion. ControlPlane never reads
+`P(failure)` is estimated from detector signals computed on text we can see — the
+prompt, the retrieved sources, and the completion. ControlPlane never reads
 logits, attention or any other model internal, because enterprises consume
 foundation models over an API and cannot inspect them.
 
 `blast radius` comes from deployment context and never from the content of the
 answer: who is asking, whether the domain is regulated, and what the answer does
-next - `read`, `draft`, `advise`, `decide` or `execute`.
+next — `read`, `draft`, `advise`, `decide` or `execute`.
 
 Signals compound but do not simply add. The largest signal sets a floor and the
 rest raise the price through a noisy-OR term at half weight, so overlapping
-findings escalate sensibly without double-counting one underlying problem.
-
-Every price carries a confidence band derived from detector confidence. The
-system never returns a score without saying how much it trusts that score.
+findings escalate sensibly without double-counting one underlying problem. Every
+price carries a confidence band; the system never returns a score without saying
+how much it trusts it.
 
 ### The detectors
 
-- **Grounding** (`detectors/grounding.py`) - splits the answer into checkable
-  claims and matches each against retrieved source chunks using the better of a
-  dense embedding cosine and a sparse lexical containment score. Adds a numeric
-  consistency check: any figure appearing in neither the sources nor the user's
-  own question marks the claim unsupported regardless of how similar the prose
-  looks. It also filters out refusals and meta-statements, which assert nothing
-  and were previously our largest source of false positives.
-- **Uncertainty** (`detectors/uncertainty.py`) - black-box self-consistency.
-  Resamples the same prompt and measures semantic agreement between samples. A
-  confident model converges; a confabulating one produces answers that disagree
-  with each other while each sounds assured. Log-probabilities are accepted as an
-  optional fast path where a provider exposes them, but are never required.
-- **Personal data** (`detectors/pii.py`) - validated entity detection. Luhn for
-  payment cards, Verhoeff for Aadhaar, patterns for PAN, IBAN, email and phone.
-  Validation matters: a sixteen-digit order reference is not a card number, and a
-  detector that says otherwise trains people to ignore it.
-- **Bias** (`detectors/bias.py`) - counterfactual probe. Holds the case constant,
-  swaps only a protected attribute (name, gender term, locality, pincode) and
-  checks whether the decision flips. This tests the failure that matters in a
-  regulated workflow, where every word is polite and the outcome is still
-  discriminatory.
-- **Cost** (`detectors/cost.py`) - token overrun against a rolling per-task
-  baseline, plus a rework signal: a user re-asking a semantically near-identical
-  question means the first answer failed. Rework is the cheapest unlabelled
-  quality signal production offers.
+- **Grounding** — splits the answer into checkable claims and matches each against
+  retrieved source chunks using lexical containment first and a dense embedding
+  only where containment fails, so ordinary grounded traffic makes no model call
+  at all. A numeric consistency check marks any figure appearing in neither the
+  sources nor the user's question as unsupported, regardless of how similar the
+  prose looks. Refusals and meta-statements are filtered out, because a correct
+  refusal asserts nothing and punishing it punishes the behaviour we want.
+- **Uncertainty** — black-box self-consistency. Resamples the same prompt and
+  measures semantic agreement. A confident model converges; a confabulating one
+  produces answers that disagree with each other while each sounds assured.
+- **Personal data** — validated entity detection. Luhn for payment cards, Verhoeff
+  for Aadhaar, patterns for PAN, IBAN, email and phone. Validation matters: a
+  sixteen-digit order reference is not a card number.
+- **Bias** — counterfactual probe. Holds the case constant, swaps only a protected
+  attribute, and checks whether the decision flips.
+- **Cost** — token overrun against a rolling per-task baseline, plus a rework
+  signal: a user re-asking a near-identical question means the first answer failed.
 
 ### The router
 
 Four outcomes, not two:
 
-- **PASS** - released untouched, verified asynchronously by sampling.
-- **REPAIR** - deterministic inline fix (redact personal data, attach a citation,
-  soften an overclaim). The user is never made to wait for a human to remove a
-  card number we can remove ourselves.
-- **ESCALATE** - the answer is released *with its uncertainty stated* while a
-  reviewer verifies in parallel. Withholding an answer has a cost too, and it is
-  usually paid by the wrong person.
-- **BLOCK** - reserved for actions that are irreversible or for policies that
-  declare a hard gate.
+- **PASS** — released untouched, verified asynchronously by sampling.
+- **REPAIR** — deterministic inline fix. The user never waits for a human to remove
+  a card number we can remove ourselves.
+- **ESCALATE** — released *with its uncertainty stated* while a reviewer verifies
+  in parallel.
+- **BLOCK** — reserved for irreversible actions and policy hard gates.
 
 One rule sits above the price. A numeric claim that contradicts the source of
-record is not a probability judgement, it is a fact about the text, so it can
-never route to PASS however low-stakes the surface looks. Blast radius decides
-how much a *probable* failure is worth spending on; it must not be able to wave
-through a demonstrated one.
-
-## The console
-
-`http://127.0.0.1:8000` is a six-tab operator console, not a static page. Every
-panel reads from the running service.
-
-- **Assistants** - three governed assistants (customer support, internal
-  copilot, decision support), each with its own retrieval corpus, policy
-  profile and latency budget. Type a question: ControlPlane retrieves, the model
-  generates, and the gate decides what you are allowed to see. Repairs, surfaced
-  uncertainty and blocks are shown as the end user would experience them, and
-  the session-risk meter climbs as a conversation accumulates risk.
-- **Policy A/B** - one identical response evaluated under two policies side by
-  side, with both sets of thresholds, weights and latency budgets on screen.
-  This is the clearest demonstration in the system.
-- **Review queue** - escalations and blocks ordered by risk price, with
-  confirm and false-alarm buttons. Each verdict lands in the ledger and moves the
-  calibration offset, visibly.
-- **Tuning** - the measured operating-point curve with the shipped point marked.
-- **Complexity map** - each real-world complexity from the brief, what handles
-  it, the file it lives in, and a button that takes you to the tab that shows it.
-- **Ledger** - the hash chain with prev-hash links and a live integrity check.
+record is a fact about the text, not a probability judgement, so it can never
+route to PASS however low-stakes the surface looks.
 
 ## Key features
 
-- Model-agnostic sidecar; no retraining, no model internals, no application
-  change beyond a base URL.
-- Three working assistants over separate retrieval corpora, with documents
-  carrying a governance grade (`governed` vs `loosely_governed`), because the
-  brief assumes a mix of well- and loosely-governed internal sources.
-- Lexical-first grounding: containment is computed for every claim before any
-  embedding call, so ordinary grounded traffic costs **zero model calls**. Added
-  latency p50 fell from 247 ms to under 4 ms when this and the embedding cache
-  landed.
+- Model-agnostic sidecar; no retraining, no model internals, no application change
+  beyond a base URL.
 - Per-use-case policy profiles with independent thresholds, weights, latency
   budgets and inline/async detector splits.
 - Jurisdiction overlays (EU, India) that compose on top of any profile and only
   ever tighten.
-- Multi-label detection, because bias, hallucination and privacy overlap in
-  practice.
-- Abstention as a first-class outcome when nothing was retrieved to check
-  against.
+- Multi-label detection, because bias, hallucination and privacy overlap.
+- Abstention as a first-class outcome when nothing was retrieved to check against.
 - Session-level risk accumulation for multi-turn and agentic use.
 - Hash-chained, HMAC-signed trust ledger with an integrity check endpoint.
-- Human override capture that writes to the ledger and moves a bounded,
-  reported calibration offset.
-- Runtime telemetry: added latency percentiles, model calls, tokens, estimated
-  cost per thousand interactions, routing mix, budget breaches.
+- Human override capture that writes to the ledger and moves a bounded, reported
+  calibration offset.
+- Documents carry a governance grade; a loosely-governed source lowers grounding
+  confidence rather than being decorative metadata.
+- Runtime telemetry: latency percentiles, model calls, tokens, estimated cost per
+  thousand interactions, routing mix, budget breaches.
 
 ## Where AI is used, and where it deliberately is not
 
@@ -325,75 +369,41 @@ panel reads from the running service.
 | Judge | LLM-as-judge (AI) | only on escalations, and only above a per-policy price |
 | Routing | deterministic policy | a governance decision must be explainable and reproducible |
 
-The judge is where ControlPlane applies its own thesis to itself. The expensive
-LLM check runs only on responses whose cheap gate score justifies it, capped by
-a per-policy call budget. Oversight that cannot account for its own cost has no
-business asking anyone else to account for theirs.
+The judge is where ControlPlane applies its own thesis to itself: the expensive
+check runs only on responses whose cheap gate score justifies it, capped by a
+per-policy call budget.
 
-## Acceptance criteria we set ourselves
+## Coverage against the brief
 
-The Round 2 brief lists minimum prototype expectations for two of the four
-tracks and none for this one. Rather than treat that as licence, we wrote our
-own and held the build to them.
-
-- Run three distinct use cases concurrently, with different risk tolerance and
-  latency budgets. Done: three profiles, demonstrated diverging on identical
-  input.
-- Never return a score without a confidence indicator. Done: every price carries
-  a confidence band.
-- Include at least one genuinely ambiguous case, one zero-source case, and one
-  overlapping-category case. Done: `tp12`, `tp05`, `tp04`.
-- Include cases we deliberately must *not* flag. Done: five, including a
-  Luhn-failing order reference and a correctly hedged answer.
-- Show behaviour under a 3x surge. Done: `demo/run_scenarios.py --only surge`.
-- Capture at least one human override and show exactly what is logged. Done:
-  `POST /api/override`, written to the ledger with the reviewer id.
-- Abstain rather than guess when evidence is insufficient. Done: the
-  `unverifiable` label and the abstain route.
-- Report false-positive and false-negative rates, not just accuracy. Done.
-- Give a clear breakdown of LLM versus non-LLM processing. Done, above.
-- Report runtime telemetry: latency, model calls, token usage, estimated cost.
-  Done, `GET /api/telemetry`.
+`docs/COVERAGE.md` walks all sixteen points the Round 2 brief names — seven
+real-world complexities, six solutioning areas, three reference parameters — with
+what implements each, where the code lives, and how to see it running. It also
+lists what we deliberately do not claim.
 
 ## Evaluation
 
-`eval/dataset.jsonl` holds 31 labelled cases, 15 that should be flagged and 16
-that should not, spanning hallucination, privacy, overlap, unverifiable,
-irreversible, waste, ambiguity and deliberate false-positive traps.
+`eval/dataset.jsonl` holds 31 labelled cases, roughly half of which should **not**
+be flagged, including deliberate false-positive traps: a Luhn-failing order
+reference, a Verhoeff-failing asset tag, a correctly hedged answer and a correct
+refusal.
 
-```
+```bash
 python eval/run_eval.py --sweep
 ```
 
-Evaluation drove three concrete changes to the detectors. The first run scored
-F1 0.690 (precision 0.769, recall 0.625). Reading the misclassifications gave us:
-
-1. Numeric claims defeated embedding similarity. "Notice period is 60 days" and
-   "notice period is 90 days" look nearly identical to any encoder, and numbers
-   are exactly the part of an answer people act on. Added an explicit numeric
-   consistency check.
-2. Refusals were being scored as unsupported claims. "I cannot give personal
-   financial advice" asserts nothing, and punishing it punishes the behaviour we
-   want. Added a meta-sentence filter.
-3. A weak encoder missed a correct paraphrase. Added lexical containment
-   alongside the dense score and take the better of the two.
-
-After those three changes the same 31 cases score precision 1.000, recall 1.000,
-F1 1.000, with added latency p50 1.6 ms and p95 2.0 ms.
+Evaluation drove three concrete detector changes. The first run scored F1 0.690.
+Reading the misclassifications gave us a numeric consistency check, a
+meta-sentence filter for refusals, and hybrid dense-plus-lexical matching. The
+same 31 cases now score precision 1.000, recall 1.000, F1 1.000.
 
 **Read that number with the scepticism it deserves.** The set is small, we wrote
-it ourselves, and we iterated the detectors against it. A perfect score here
-means "we fixed everything this set caught", not "this generalises". It is a
-regression guard and an honest record of what we tested, not evidence of field
-performance. Establishing the latter needs a held-out set we did not author,
-production traffic, and inter-annotator agreement on the labels - all listed in
-the roadmap.
+it, and we iterated the detectors against it. It is a regression guard and an
+honest record of what we tested, not evidence of generalisation.
 
-The more informative output is the operating-point sweep, because
-over-flagging and under-flagging is a tradeoff to tune rather than a problem to
-solve:
+The more informative output is the operating-point sweep, because over-flagging
+and under-flagging is a tradeoff to tune rather than a problem to solve:
 
-| grounding support threshold | precision | recall | false-positive rate |
+| grounding threshold | precision | recall | false-positive rate |
 | --- | --- | --- | --- |
 | 0.50 | 1.000 | 1.000 | 0.000 |
 | 0.55 (shipped) | 1.000 | 1.000 | 0.000 |
@@ -401,194 +411,170 @@ solve:
 | 0.70 | 0.833 | 1.000 | 0.200 |
 | 0.80 | 0.789 | 1.000 | 0.267 |
 
-Tightening past 0.55 buys no additional recall and costs precision immediately -
-each false positive is an alert someone has to dismiss. That knee is why the
-shipped value is 0.55, and the sweep is in the repository so the choice can be
-argued with rather than taken on trust.
+Tightening past 0.55 buys no additional recall and costs precision immediately.
 
-Offline, self-consistency and the counterfactual bias probe both abstain rather
-than emit a number, because neither is meaningful without a real model to
-resample. Offline results therefore under-report what the live system detects.
-Cases marked `live_only` are skipped and reported separately.
+## Capacity
 
-## Runtime telemetry
+The brief's reference volume is tens of thousands of interactions per week. We
+measured rather than asserted:
 
-`GET /api/telemetry` reports added-latency p50/p95/p99, per-detector latency,
-routing mix by profile, model calls, judge call rate, token counts, estimated
-cost per thousand interactions, latency-budget breaches and override counts.
+```bash
+python eval/capacity.py --requests 1500 --workers 12
+```
 
-On the first-load seed of 62 requests the observed routing mix is **90.3% pass,
-8.1% escalate, 1.6% block**, against a design target of roughly 92 / 4 / 3 / 1,
-and the LLM judge fires on **6.45%** of traffic against a policy cap of 9%. The
-escalate share runs above target because the seed is deliberately denser in
-failures than real traffic would be; pass rate, block rate and judge rationing
-all land where the design says they should.
+On one process: **303 gated requests per second**, end-to-end p50 39 ms and p95
+55 ms under a concurrency of 12 — roughly **183 million interactions per week**,
+against the 50,000 used in the business case. Throughput is not the constraint.
+Reviewer attention is, which is why the architecture optimises for that.
 
-Under the scenario suite, added latency sits at roughly 1-3 ms p50 with the
-offline provider; a 3x surge does not move it, because inline detectors run
-concurrently against the policy's budget and demote to asynchronous rather than
-overrun. With the live Gemini provider the dominant cost is the embedding call,
-and the judge is capped by policy at a single-digit percentage of traffic.
+## API reference
 
-## Scenario suite
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/v1/chat` | retrieve, generate, then gate before returning |
+| `POST` | `/v1/gate` | score and route a completion you already have |
+| `POST` | `/v1/proxy/chat` | the same thing in proxy form |
+| `POST` | `/api/compare` | one response under two policies, side by side |
+| `POST` | `/api/override` | record a reviewer verdict, move calibration |
+| `GET` | `/api/queue` | escalations awaiting review, most expensive first |
+| `GET` | `/api/telemetry` | latency, routing mix, model calls, tokens, cost |
+| `GET` | `/api/ledger` · `/api/ledger/verify` | audit trail and integrity check |
+| `GET` | `/api/policies` · `POST` `/api/policies/reload` | policy inspection and hot reload |
+| `GET` | `/api/tuning` | measured operating-point curve |
+| `GET` | `/api/models` · `/api/diag` · `/health` | provider diagnostics |
 
-`python demo/run_scenarios.py` runs eight scenarios against a live server and
-prints what actually happened, including the resolved policy for each run.
+Example — gate a response you already have:
 
-- **Same response, two use cases** - identical model output routed under
-  `customer_support` and `internal_knowledge`. Escalates under one, passes under
-  the other. This is the whole thesis in one screen.
-- **Same response, two jurisdictions** - the EU overlay escalates what the India
-  overlay repairs, from the same bytes.
-- **One finding, two labels** - a fabricated detail about a named person raises
-  hallucination and privacy together.
-- **No ground truth** - nothing retrieved, so the system abstains and says so.
-- **The one class that earns a block** - an irreversible payment run that cannot
-  be evidenced.
-- **What we deliberately do not flag** - the Luhn-failing order reference.
-- **Risk compounds across a conversation** - three turns, session risk rising
-  from 0.00 to 0.42.
-- **Human override and feedback** - a reviewer verdict lands in the ledger and
-  moves the calibration offset.
-- **Surge** - 20 then 60 requests, latency held.
+```bash
+curl -X POST http://127.0.0.1:8000/v1/gate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "What is the notice period for band 8?",
+    "answer": "Band 8 employees serve a 90 day notice period.",
+    "sources": ["Notice period for band 8 is 60 days."],
+    "profile": "internal_knowledge",
+    "action_class": "draft"
+  }'
+```
 
 ## Design decisions and tradeoffs
 
-- **Support, not truth.** There is often no reliable real-time ground truth, and
-  the same knowledge gaps that cause hallucination make automated verification
-  hard. So we never claim to detect falsehood. We measure whether a claim traces
-  to retrieved source material, and when nothing covers it we return
-  `unverifiable`, which is a distinct outcome routed differently from "wrong".
+- **Support, not truth.** There is often no reliable real-time ground truth. We
+  measure whether a claim traces to retrieved source material, and when nothing
+  covers it we return `unverifiable`, routed differently from "wrong".
 - **Block is the last resort.** Blocking a customer-facing assistant is usually
-  more disruptive than the failure it prevents. BLOCK is available only where the
-  action is irreversible or policy declares a hard gate.
+  more disruptive than the failure it prevents.
 - **Waste is reported, not gated.** A wasteful answer is a spend problem, not a
   release problem. It belongs in a FinOps report, not in a gate that makes a user
-  wait. Conflating the two queues is how governance tools acquire a reputation
-  for getting in the way.
+  wait.
 - **Calibration is bounded and visible.** Overrides move a per-profile offset,
-  capped at 12 points, reported through the API and shown on the dashboard. A
-  governance layer that retunes itself invisibly is worse than one that does not
-  retune at all.
+  capped at 12 points and reported through the API.
 - **Tamper-evident, not tamper-proof.** The ledger is a hash chain with HMAC
-  signatures. Anyone holding the signing key can rewrite history; what the chain
-  gives you is detection, and `GET /api/ledger/verify` reports the first index
-  where it broke. We are not calling this a blockchain and it is not immutable.
+  signatures. Anyone with the signing key can rewrite history; what the chain
+  gives you is detection.
 
-## Coverage against the brief
-
-`docs/COVERAGE.md` walks all sixteen points the Round 2 brief names for this
-track - seven real-world complexities, six solutioning areas, three reference
-parameters - with what implements each, where the code lives, and how to see it
-running. It also lists what we deliberately do not claim.
-
-Two of those points are worth pulling forward because they are measured rather
-than argued:
-
-- **Volume.** `python eval/capacity.py` runs the real gate under concurrency:
-  **303 gated requests per second** on one process, p50 39 ms and p95 55 ms under
-  load, which is roughly 183 million interactions per week against the brief's
-  reference of tens of thousands. Throughput is not the constraint; reviewer
-  attention is.
-- **Source governance.** Every document carries a grade and an owner, and the
-  grade is not decorative: a loosely-governed source lowers the confidence of the
-  grounding verdict and raises residual risk, because a claim supported only by
-  an unowned wiki page is supported more weakly than one traced to an owned,
-  versioned document.
-
-## Limitations and what we did not build
-
-Stated plainly, because a governance tool that oversells itself is the joke it
-is trying to prevent.
+## Limitations
 
 - The offline embedder is a character n-gram hashing vectoriser, not a neural
-  encoder. It is deterministic and free, which is why the repository runs with no
-  key, but it is weaker than the live path on paraphrase.
-- Self-consistency needs several samples per response, which multiplies upstream
-  cost. It is inline only for profiles whose latency budget allows it.
-- The bias probe requires a decision that reduces cleanly to approve or decline.
-  Free-text recommendations without a clear verdict return not-applicable rather
-  than a fabricated score.
-- The 31-case evaluation set is authored by us. See the caveat above.
-- Retrieval is out of scope: ControlPlane consumes the sources the calling
-  application already retrieved. If the application retrieves nothing, the honest
-  answer is `unverifiable`, which is what it returns.
-- No authentication or rate limiting on the API. This is a prototype, not a
-  deployment.
+  encoder. Deterministic and free, but weaker on paraphrase than the live path.
+- Self-consistency multiplies upstream cost, so it is inline only for profiles
+  whose latency budget allows it.
+- The bias probe needs a decision that reduces to approve or decline; free-text
+  recommendations return not-applicable rather than a fabricated score.
+- The 31-case evaluation set is ours, and the detectors were tuned against it.
+- Retrieval quality is out of scope; ControlPlane consumes the sources the calling
+  application retrieved.
+- No authentication or rate limiting on the API. This is a prototype.
 - Cost figures are estimates from published list prices, not billing data.
 
 ## Roadmap
 
-- **Phase 1, weeks 1-6.** Held-out evaluation set authored by someone other than
-  the detector authors, with inter-annotator agreement. Real provider adapters
-  for OpenAI and Azure OpenAI alongside Gemini. Redis-backed session and baseline
-  stores so the service scales horizontally.
-- **Phase 2, weeks 7-16.** Shadow mode against a real workload: score everything,
-  route nothing, and measure what would have happened. This is how a checker earns
-  the right to be in the path. Reviewer console with queue prioritisation by risk
-  price. Per-tenant policy versioning with approval workflow.
-- **Phase 3, quarters 2-3.** Learned calibration replacing the bounded offset,
-  trained on accumulated override labels, with the bounded offset retained as a
-  fallback. Agent action-gating with tool-call interception. Policy pack library
-  per regulated sector.
+- **Phase 1, weeks 1–6.** Independently authored held-out evaluation set with
+  inter-annotator agreement. Provider adapters for OpenAI and Azure OpenAI.
+  Redis-backed session and baseline stores. Authentication and rate limiting.
+- **Phase 2, weeks 7–16.** Shadow mode against a real workload: score everything,
+  route nothing, measure what would have happened. Reviewer console with queue
+  prioritisation. Per-tenant policy versioning with approval workflow.
+- **Phase 3, quarters 2–3.** Learned calibration trained on accumulated override
+  labels, with the bounded offset retained as a fallback. Agent action-gating via
+  tool-call interception. Sector policy-pack library.
 
 ## Troubleshooting
 
-**I set a key in `.env` but `/health` still says offline.** Read the `config`
-block that `/health` returns; it names the cause. The usual ones are that `.env`
-sits somewhere other than the repository root, or `CONTROLPLANE_PROVIDER` is
-still `offline`. A real environment variable always overrides the file, so
-`set CONTROLPLANE_PROVIDER=gemini` in the shell will win regardless.
+**Do I need an API key to review this?**
+No. Everything except live generation runs offline. `GET /health` reports which
+mode you are in and why.
 
-**Do I need an API key to review this?** No. See "Running this without an API
-key" above. If `GET /health` reports `"provider":"offline"`, everything in this
-document except the two live-only detectors is reproducible as-is.
+**`/health` says `"live": false` after I edited `.env`.**
+Read the `config` block it returns; it names the cause. Usually `.env` is not in
+the repository root, or `CONTROLPLANE_PROVIDER` is still `offline`. A real
+environment variable overrides the file, so this always wins:
 
-**The server starts but the dashboard is empty.** The stream is populated from
-the trust ledger, which starts empty. Click a scenario button, or run
-`python demo/run_scenarios.py`.
+```bash
+export CONTROLPLANE_PROVIDER=gemini
+```
 
-**`gemini provider unavailable` in the logs.** The service logged the fallback
-and continued on the offline provider. Check that `GEMINI_API_KEY` is set and
-`CONTROLPLANE_PROVIDER=gemini`. The fallback is deliberately noisy rather than
-silent.
+On **Windows**:
 
-**Evaluation reports different numbers than this README.** Check the provider
-line at the top of the output. Live and offline are not comparable: offline
-abstains on two detectors.
+```bat
+set CONTROLPLANE_PROVIDER=gemini
+```
 
-**Ledger verification reports broken.** Either the file was edited, or
-`LEDGER_SIGNING_KEY` changed between writes. Both are what the check is for.
+**The model returns 503 or 429.**
+The `-latest` aliases point at the newest Flash, which has the smallest free-tier
+allowance and the highest load. Use `gemini-3.1-flash-lite`. To see what your key
+can reach and which model answered:
 
-**Calibration offsets persist between runs.** They are meant to; feedback is
-durable. Delete `data/calibration.json` to reset a demo.
+```bash
+curl http://127.0.0.1:8000/api/models
+curl http://127.0.0.1:8000/api/diag
+```
+
+**Embeddings fail with a 404.**
+`text-embedding-004` has been retired on newer keys. Use
+`gemini-embedding-001`.
+
+**The console is empty.**
+The stream is populated from the trust ledger, which starts empty. It seeds
+itself on first load; if that failed, click any scenario or run:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/seed
+```
+
+**Ledger verification reports broken.**
+Either the file was edited or `LEDGER_SIGNING_KEY` changed between writes. Both
+are what the check exists to catch.
+
+**Calibration offsets persist between runs.**
+They are meant to; feedback is durable. Use `make clean` to reset a demo.
 
 ## FAQ
 
-**Q: Is this a guardrail library?**
-A: No. Guardrail libraries apply the same checks to every response and mostly ask
-whether text is unsafe. ControlPlane asks a different question - what does it
-cost if this particular response is wrong - and spends accordingly. The output is
-a routing decision and an audit record, not a filter verdict.
+**Is this a guardrail library?**
+No. Guardrail libraries apply the same checks to every response and mostly ask
+whether text is unsafe. ControlPlane asks what it costs if *this particular*
+response is wrong, and spends accordingly. The output is a routing decision and an
+audit record, not a filter verdict.
 
-**Q: Why not just use a bigger model to check the output?**
-A: Because that is the expensive answer applied uniformly, which is the failure
-mode we exist to fix. We do use an LLM judge, on the small fraction of traffic
-where the cheap gate cannot resolve the question, capped by policy.
+**Why not just use a bigger model to check the output?**
+That is the expensive answer applied uniformly, which is the failure mode we
+exist to fix. We do use an LLM judge — on the small fraction of traffic where the
+cheap gate cannot resolve the question, capped by policy.
 
-**Q: What happens when the checker itself is wrong?**
-A: It is designed to be wrong in a specific direction. Most failures route to
+**What happens when the checker itself is wrong?**
+It is designed to be wrong in a specific direction. Most failures route to
 ESCALATE, which releases the answer with its uncertainty stated rather than
 withholding it, so a false positive costs a reviewer's attention rather than a
-customer's answer. Reviewers' verdicts then move the calibration offset.
+customer's answer.
 
-**Q: Does it work with models other than Gemini?**
-A: The provider interface is three methods - embed, complete, judge. Gemini and
+**Does it work with models other than Gemini?**
+The provider interface is three methods — embed, complete, judge. Gemini and
 offline ship. Anything with an HTTP API fits behind the same interface.
 
 ## Maintainers
 
-- Gungun Jain, Civil Engineering, IIT Kanpur, 2028 - team lead
-- Adithya Vishnu, Mechanical Engineering, IIT Kanpur, 2028
+- Gungun Jain — Civil Engineering, IIT Kanpur, 2028 — team lead
+- Adithya Vishnu — Mechanical Engineering, IIT Kanpur, 2028
 
 Team Challenge_24, Accenture Innovation Challenge 2026.
