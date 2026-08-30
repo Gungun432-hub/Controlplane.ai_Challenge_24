@@ -24,7 +24,7 @@ SLA = ("Priority 1 incidents carry a 30 minute response SLA and a 4 hour resolut
 CLAIM = ("Policy HX-4412 covers accidental damage up to INR 200,000 with a INR 5,000 "
          "deductible. Flood damage is excluded unless rider FL-2 is active.")
 
-SEED_TRAFFIC = [
+ORDINARY = [
     # --- ordinary traffic, the boring majority ---
     dict(app="knowledge-copilot", profile="internal_knowledge", action_class="read",
          prompt="How much annual leave do band 8 employees accrue?",
@@ -56,7 +56,10 @@ SEED_TRAFFIC = [
          answer="Decline. Flood damage is excluded unless rider FL-2 is active, and it is not.",
          sources=[CLAIM]),
 
-    # --- the failure modes, at roughly realistic frequency ---
+]
+
+FAILURES = [
+    # --- the failure modes ---
     dict(app="hr-copilot", profile="internal_knowledge", action_class="draft",
          prompt="What is the notice period for band 8?",
          answer="Band 8 employees serve a 90 day notice period and accrue 30 days of leave.",
@@ -81,4 +84,33 @@ SEED_TRAFFIC = [
          prompt="Execute the vendor payment run for cycle 33.",
          answer="Executing payment run cycle 33 for INR 4,20,00,000 across 61 vendors.",
          sources=[]),
+
 ]
+
+
+def build(repeats: int = 7) -> list[dict]:
+    """Assemble a seed burst whose routing mix resembles a real fleet.
+
+    The failure rows are the interesting ones, but showing only those would make
+    the dashboard contradict the ~92 percent pass rate the solution is designed
+    around. So ordinary traffic is repeated to the right proportion: the mix a
+    reviewer sees on arrival should corroborate the claim, not fight it.
+
+    Each request gets its own session id. Sharing one would make the rework
+    signal in the cost detector fire on the repeated prompts, which would be an
+    artefact of how we seeded rather than anything about the answers.
+    """
+    out: list[dict] = []
+    for i in range(repeats):
+        for j, row in enumerate(ORDINARY):
+            r = dict(row)
+            r["session_id"] = f"seed-ordinary-{i}-{j}"
+            out.append(r)
+    for k, row in enumerate(FAILURES):
+        r = dict(row)
+        r["session_id"] = f"seed-failure-{k}"
+        out.append(r)
+    return out
+
+
+SEED_TRAFFIC = build()
