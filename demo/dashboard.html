@@ -120,6 +120,7 @@ border-radius:50%;animation:sp .7s linear infinite}
     <div class="sub">Risk-priced oversight for enterprise AI &mdash; every panel below is live from the running service</div></div>
   <div class="right">
     <span class="pill" id="prov">…</span>
+    <span class="pill" id="quota"></span>
     <span class="pill" id="cache">cache …</span>
     <span class="pill" id="req">0 governed</span>
   </div>
@@ -521,6 +522,8 @@ async function poll(){
 async function boot(){
  const h=await (await fetch(API+'/health')).json();
  $('prov').innerHTML=h.live?`provider: <b>${h.provider} · live model</b>`:`provider: ${h.provider} · no API key`;
+ if(h.quota) $('quota').innerHTML=`quota <b>${h.quota.day_remaining}</b>/${h.quota.per_day_limit} left today`;
+ else $('quota').style.display='none';
  POLICIES=await (await fetch(API+'/api/policies')).json();
  const opts=POLICIES.profiles.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
  $('lProfile').innerHTML=opts; $('rProfile').innerHTML=opts;
@@ -532,7 +535,10 @@ async function boot(){
  if(!t.requests){ try{ await fetch(API+'/api/seed',{method:'POST'}); }catch(e){} }
  poll(); setInterval(poll,2500);
  setInterval(async()=>{ try{const c=await (await fetch(API+'/api/cache')).json();
-   $('cache').textContent=`embed cache ${c.hit_rate_pct}% hit`;}catch(e){} },4000);
+   $('cache').textContent=`embed cache ${c.hit_rate_pct}% hit`;
+   const hh=await (await fetch(API+'/health')).json();
+   if(hh.quota) $('quota').innerHTML=`quota <b>${hh.quota.day_remaining}</b>/${hh.quota.per_day_limit} left today`;
+  }catch(e){} },5000);
 }
 boot();
 </script>

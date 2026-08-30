@@ -12,9 +12,13 @@ oversight only where the risk price justifies it.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import random
 import re
+import threading
+import time
 
 import httpx
 
@@ -42,6 +46,52 @@ Return ONLY a JSON object:
 {"supported": bool, "unverifiable": bool, "confidence": 0.0-1.0, "rationale": "one sentence"}"""
 
 
+class RateLimiter:
+    """Token bucket sized for the free tier.
+
+    The published free-tier limit is small - single-digit requests per minute
+    and a low daily cap - and a governance layer that DDoSes its own model
+    provider is a poor advertisement for itself. Calls block briefly rather than
+    failing, and the limiter reports how much headroom is left.
+    """
+
+    def __init__(self, rpm: int = 4, rpd: int = 18):
+        self.rpm, self.rpd = rpm, rpd
+        self._minute: list[float] = []
+        self._day: list[float] = []
+        self._lock = threading.Lock()
+
+    def acquire(self, timeout: float = 20.0) -> None:
+        deadline = time.time() + timeout
+        while True:
+            with self._lock:
+                now = time.time()
+                self._minute = [t for t in self._minute if now - t < 60]
+                self._day = [t for t in self._day if now - t < 86400]
+                if len(self._day) >= self.rpd:
+                    raise RuntimeError(
+                        f"daily request budget exhausted ({self.rpd}/day, matching the "
+                        f"free tier). Resets 24h after the earliest call. The offline "
+                        f"provider still works: set CONTROLPLANE_PROVIDER=offline.")
+                if len(self._minute) < self.rpm:
+                    self._minute.append(now)
+                    self._day.append(now)
+                    return
+                wait = 60 - (now - self._minute[0]) + 0.2
+            if time.time() + wait > deadline:
+                raise RuntimeError("rate limit wait exceeded the request timeout")
+            time.sleep(min(wait, 5))
+
+    def stats(self) -> dict:
+        with self._lock:
+            now = time.time()
+            m = len([t for t in self._minute if now - t < 60])
+            d = len([t for t in self._day if now - t < 86400])
+        return {"per_minute_used": m, "per_minute_limit": self.rpm,
+                "per_day_used": d, "per_day_limit": self.rpd,
+                "day_remaining": max(0, self.rpd - d)}
+
+
 class GeminiProvider:
     name = "gemini"
 
@@ -53,6 +103,35 @@ class GeminiProvider:
         self.judge_model = judge_model or os.environ.get("GEMINI_JUDGE_MODEL", "gemini-flash-latest")
         self.embed_model = embed_model or os.environ.get("GEMINI_EMBED_MODEL", "text-embedding-004")
         self._client = httpx.Client(timeout=timeout, headers={"x-goog-api-key": self.api_key})
+        self.limiter = RateLimiter(
+            rpm=int(os.environ.get("GEMINI_RPM", "4")),
+            rpd=int(os.environ.get("GEMINI_RPD", "18")),
+        )
+        self._completions: dict[str, str] = {}   # prompt hash -> text
+        self._clock = threading.Lock()
+
+    def _post(self, url: str, body: dict, attempts: int = 3) -> dict:
+        """One rate-limited call, retrying a 429 with exponential backoff."""
+        last: Exception | None = None
+        for i in range(attempts):
+            self.limiter.acquire()
+            try:
+                r = self._client.post(url, json=body)
+                if r.status_code == 429:
+                    wait = (2 ** i) + random.random()
+                    last = httpx.HTTPStatusError(
+                        f"429 rate limited by the provider; retried after {wait:.1f}s",
+                        request=r.request, response=r)
+                    time.sleep(wait)
+                    continue
+                r.raise_for_status()
+                return r.json()
+            except httpx.HTTPStatusError as exc:
+                last = exc
+                if exc.response is not None and exc.response.status_code < 500:
+                    raise
+                time.sleep((2 ** i) + random.random())
+        raise last or RuntimeError("request failed")
 
     # -- embeddings ------------------------------------------------------------
     def embed(self, texts: list[str]) -> list[list[float]]:
@@ -66,25 +145,31 @@ class GeminiProvider:
                 for t in texts
             ]
         }
-        r = self._client.post(url, json=payload)
-        r.raise_for_status()
-        return [e["values"] for e in r.json()["embeddings"]]
+        data = self._post(url, payload)
+        return [e["values"] for e in data["embeddings"]]
 
     # -- completion ------------------------------------------------------------
     def complete(self, prompt: str, n: int = 1, temperature: float = 0.7) -> tuple[list[str], Usage]:
         """Sample n independent completions. Used for self-consistency."""
         url = f"{API_ROOT}/models/{self.judge_model}:generateContent"
         outs, usage = [], Usage()
-        for _ in range(n):
+        for i in range(n):
+            # Deterministic requests are cached. Re-asking a demo question should
+            # not spend quota twice.
+            key = hashlib.sha1(f"{prompt}|{temperature}|{i}".encode()).hexdigest()
+            if temperature == 0.0 and key in self._completions:
+                outs.append(self._completions[key])
+                continue
             body = {
                 "contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {"temperature": temperature, "maxOutputTokens": 512},
             }
-            r = self._client.post(url, json=body)
-            r.raise_for_status()
-            data = r.json()
-            outs.append(_first_text(data))
+            data = self._post(url, body)
+            text = _first_text(data)
+            outs.append(text)
             usage.add(_usage_from(data))
+            if temperature == 0.0:
+                self._completions[key] = text
         return outs, usage
 
     # -- judge -----------------------------------------------------------------
@@ -104,9 +189,7 @@ class GeminiProvider:
             "generationConfig": {"temperature": 0.0, "maxOutputTokens": 256,
                                  "responseMimeType": "application/json"},
         }
-        r = self._client.post(url, json=body)
-        r.raise_for_status()
-        data = r.json()
+        data = self._post(url, body)
         usage = _usage_from(data)
         parsed = _parse_json(_first_text(data))
         if parsed is None:

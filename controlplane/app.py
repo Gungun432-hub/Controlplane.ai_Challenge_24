@@ -96,9 +96,12 @@ class OverrideBody(BaseModel):
 @app.get("/health")
 def health() -> dict:
     p = get_provider()
+    inner = getattr(p, "_inner", p)
+    lim = getattr(inner, "limiter", None)
     return {"status": "ok", "provider": p.name, "live": SETTINGS.live,
             "judge_model": SETTINGS.judge_model if SETTINGS.live else None,
-            "config": SETTINGS.status}
+            "config": SETTINGS.status,
+            "quota": lim.stats() if lim else None}
 
 
 @app.post("/v1/gate")
@@ -144,7 +147,7 @@ def seed() -> dict:
 
     before = TELEMETRY.snapshot()["requests"]
     for row in SEED_TRAFFIC:
-        evaluate(GateRequest(**row))
+        evaluate(GateRequest(**row, force_offline=True))
     after = TELEMETRY.snapshot()
     return {"seeded": len(SEED_TRAFFIC), "requests_before": before,
             "requests_after": after["requests"], "routes": after["routes"]}
@@ -300,6 +303,8 @@ def diag() -> dict:
     report: dict[str, Any] = {"provider": p.name, "live": SETTINGS.live,
                               "config": SETTINGS.status}
     inner = getattr(p, "_inner", p)
+    lim = getattr(inner, "limiter", None)
+    report["quota"] = lim.stats() if lim else {"available": False}
     report["judge_model"] = getattr(inner, "judge_model", None)
     report["embed_model"] = getattr(inner, "embed_model", None)
     key = SETTINGS.gemini_api_key

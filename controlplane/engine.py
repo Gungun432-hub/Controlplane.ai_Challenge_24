@@ -31,8 +31,8 @@ _POOL = ThreadPoolExecutor(max_workers=8)
 
 @dataclass
 class GateRequest:
-    prompt: str
-    answer: str
+    prompt: str = ""
+    answer: str = ""
     sources: list[str] = field(default_factory=list)
     profile: str = "customer_support"
     jurisdiction: str | None = None
@@ -43,6 +43,7 @@ class GateRequest:
     app: str = "unnamed-app"
     model: str = "unknown"
     logprob_hint: float | None = None
+    force_offline: bool = False   # seeded/demo traffic: never spend live quota
 
 
 @dataclass
@@ -92,7 +93,10 @@ def _run_detector(name: str, provider, req: GateRequest, session_prompts: list[s
 
 def evaluate(req: GateRequest) -> GateResult:
     t_start = time.perf_counter()
-    provider = get_provider()
+    # Seeded and demonstration traffic runs on the offline provider even when a
+    # live key is configured. A free-tier daily quota is a scarce resource and
+    # populating a dashboard is not worth spending it on.
+    provider = get_provider("offline") if req.force_offline else get_provider()
     policy: Policy = REGISTRY.get(req.profile, req.jurisdiction)
     action_class = req.action_class or policy.default_action_class
     audience = policy.d.get("audience", "internal")

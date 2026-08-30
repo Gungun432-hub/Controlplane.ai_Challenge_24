@@ -139,6 +139,25 @@ credentials.
 - `GEMINI_JUDGE_MODEL` - default `gemini-flash-latest`
 - `GEMINI_EMBED_MODEL` - default `text-embedding-004`
 - `LEDGER_SIGNING_KEY` - HMAC key for the trust ledger; generate your own
+- `GEMINI_RPM` / `GEMINI_RPD` - request budget, default 4 per minute and 18 per
+  day to sit inside the Gemini free tier. Raise them if your key has a paid quota
+
+### Living inside a free-tier quota
+
+The free tier allows single-digit requests per minute and roughly twenty per
+day. Three things keep the system inside it, and all three are the same
+behaviours the product argues for:
+
+- **Seeded and demonstration traffic never touches the live provider.** The
+  first-load burst and every scenario run on the offline provider even when a
+  key is configured. Populating a dashboard is not worth a day's quota.
+- **The expensive check is rationed.** The LLM judge only runs above a
+  per-policy risk price, and grounding resolves lexically before it embeds
+  anything, so ordinary traffic makes no model call at all.
+- **Calls are rate-limited and cached.** A token bucket blocks briefly rather
+  than failing, 429s retry with backoff, deterministic completions are cached,
+  and embeddings are cached. Remaining daily headroom is shown in the console
+  header and reported by `/health` and `/api/diag`.
 
 Everything else is policy, and policy is data rather than code. Use-case
 profiles live in `controlplane/policies/*.yaml` and jurisdiction overlays in
