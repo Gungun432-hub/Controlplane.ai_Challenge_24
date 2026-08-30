@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from .config import REGISTRY, SETTINGS
+from .knowledge import CORPORA, retrieve
 from .engine import GateRequest, evaluate
 from .feedback import CALIBRATOR
 from .ledger import LEDGER
@@ -64,6 +65,24 @@ class ProxyBody(BaseModel):
     regulated: bool = False
     session_id: str | None = None
     app: str = "unnamed-app"
+
+
+class ChatBody(BaseModel):
+    message: str
+    use_case: str = "customer_support"      # also the policy profile id
+    jurisdiction: str | None = None
+    session_id: str = "chat"
+    action_class: str | None = None
+
+
+class CompareBody(BaseModel):
+    prompt: str = ""
+    answer: str
+    sources: list[str] = Field(default_factory=list)
+    left: dict = Field(default_factory=lambda: {"profile": "customer_support"})
+    right: dict = Field(default_factory=lambda: {"profile": "internal_knowledge"})
+    action_class: str | None = None
+    regulated: bool = True
 
 
 class OverrideBody(BaseModel):
@@ -128,6 +147,148 @@ def seed() -> dict:
     after = TELEMETRY.snapshot()
     return {"seeded": len(SEED_TRAFFIC), "requests_before": before,
             "requests_after": after["requests"], "routes": after["routes"]}
+
+
+ANSWER_PROMPT = """You are an enterprise assistant. Answer the user's question using ONLY
+the SOURCES below. Be concise - two or three sentences.
+
+If the sources do not contain the answer, say so plainly rather than guessing.
+
+SOURCES:
+{sources}
+
+QUESTION: {question}
+
+ANSWER:"""
+
+
+@app.post("/v1/chat")
+def chat(body: ChatBody) -> dict:
+    """A governed assistant turn: retrieve, generate, then gate before returning.
+
+    This is the shape an enterprise actually deploys. The application does
+    retrieval and generation as it already does; ControlPlane sits on the way
+    out and decides what the user is allowed to see.
+    """
+    if body.use_case not in REGISTRY.profiles:
+        raise HTTPException(400, f"unknown use case: {body.use_case}")
+
+    docs = retrieve(body.use_case, body.message, k=2)
+    sources = [d["text"] for d in docs]
+    provider = get_provider()
+
+    prompt = ANSWER_PROMPT.format(
+        sources="\n\n".join(f"[{d['id']}] {d['text']}" for d in docs) or "(none retrieved)",
+        question=body.message,
+    )
+    outs, usage = provider.complete(prompt, n=1, temperature=0.3)
+    raw_answer = (outs[0] if outs else "").strip()
+    if not raw_answer or raw_answer.startswith("[offline-sample"):
+        # Offline provider cannot generate. Say so rather than invent an answer.
+        raw_answer = ("(offline mode: no model is configured, so this assistant cannot "
+                      "generate a reply. Set CONTROLPLANE_PROVIDER=gemini to see live "
+                      "generation. The governance layer below still runs on this text.)")
+
+    regulated = body.use_case in ("customer_support", "decision_support")
+    result = evaluate(GateRequest(
+        prompt=body.message, answer=raw_answer, sources=sources,
+        profile=body.use_case, jurisdiction=body.jurisdiction,
+        action_class=body.action_class, regulated=regulated,
+        session_id=f"{body.use_case}:{body.session_id}",
+        task_class="advise", app=f"chat:{body.use_case}",
+        model=SETTINGS.judge_model if SETTINGS.live else "offline",
+    ))
+    out = result.as_dict()
+    out["raw_answer"] = raw_answer
+    out["retrieved"] = docs
+    out["generation_usage"] = usage.as_dict()
+    return out
+
+
+@app.post("/api/compare")
+def compare(body: CompareBody) -> dict:
+    """Evaluate one identical response under two policies, side by side.
+
+    The clearest demonstration in the system: same bytes in, different decision
+    out, because the use case or the jurisdiction differs.
+    """
+    def run(cfg: dict) -> dict:
+        req = GateRequest(
+            prompt=body.prompt, answer=body.answer, sources=body.sources,
+            profile=cfg.get("profile", "customer_support"),
+            jurisdiction=cfg.get("jurisdiction"),
+            action_class=cfg.get("action_class", body.action_class),
+            regulated=cfg.get("regulated", body.regulated),
+            session_id=None, app="compare",
+        )
+        return evaluate(req).as_dict()
+
+    return {"left": run(body.left), "right": run(body.right)}
+
+
+@app.get("/api/queue")
+def queue(limit: int = 20) -> dict:
+    """Escalations and blocks awaiting human review, most expensive first."""
+    reviewed = {e["record"].get("request_id") for e in LEDGER.iter_all()
+                if e["record"].get("type") == "human_override"}
+    pending = []
+    for e in LEDGER.iter_all():
+        r = e["record"]
+        if r.get("type") == "human_override":
+            continue
+        if r.get("decision", {}).get("action") not in ("escalate", "block"):
+            continue
+        if r.get("request_id") in reviewed:
+            continue
+        pending.append({
+            "request_id": r["request_id"], "app": r["app"],
+            "policy": r["policy"]["id"], "action": r["decision"]["action"],
+            "price": r["risk"]["price"], "band": r["risk"]["band"],
+            "labels": r["risk"]["labels"], "reason": r["decision"]["reason"],
+            "answer_preview": r["answer_preview"],
+            "queue": r["decision"].get("review_queue"),
+            "ledger_index": e["index"],
+        })
+    pending.sort(key=lambda x: -x["price"])
+    return {"pending": pending[:limit], "total_pending": len(pending),
+            "reviewed": len(reviewed)}
+
+
+@app.get("/api/tuning")
+def tuning() -> dict:
+    """The measured operating-point curve, from the last evaluation run."""
+    import json as _json
+    from pathlib import Path as _Path
+    path = _Path(__file__).resolve().parent.parent / "eval" / "results.json"
+    if not path.exists():
+        return {"available": False,
+                "hint": "run: python eval/run_eval.py --sweep"}
+    doc = _json.loads(path.read_text())
+    from .detectors import grounding as _g
+    return {
+        "available": True,
+        "provider": doc.get("provider"),
+        "current": doc.get("metrics"),
+        "shipped_support_tau": _g.SUPPORT_TAU,
+        "sweep_support_tau": doc.get("sweep_support_tau", []),
+        "sweep_pass_threshold": doc.get("sweep_pass_threshold", []),
+        "cases": len(doc.get("rows", [])),
+    }
+
+
+@app.get("/api/cache")
+def cache_stats() -> dict:
+    """Embedding cache effectiveness. Source documents repeat constantly in a
+    real deployment, so this is the cheapest latency win available."""
+    p = get_provider()
+    return p.stats() if hasattr(p, "stats") else {"available": False}
+
+
+@app.get("/api/corpora")
+def corpora() -> dict:
+    return {uc: [{"id": d.id, "grade": d.grade, "owner": d.owner,
+                  "preview": d.text[:110] + "..."} for d in docs]
+            for uc, docs in CORPORA.items()}
 
 
 @app.get("/api/policies")

@@ -127,12 +127,29 @@ def detect(provider, answer: str, sources: list[str], prompt: str = "", **_) -> 
     evidence: list[str] = []
     evidence_numeric: list[str] = []
 
-    vecs = provider.embed(claims + src)
-    cv = np.array(vecs[: len(claims)], dtype=float)
-    sv = np.array(vecs[len(claims):], dtype=float)
-    sim = _cos(cv, sv)
+    # Cheap first. Lexical containment costs microseconds and needs no model
+    # call, so compute it for every claim before spending anything. Only claims
+    # it cannot already clear go to the embedder.
+    #
+    # This is the system's own thesis applied to its own internals: the
+    # expensive check runs on the fraction of work that actually needs it. On
+    # ordinary grounded traffic it removes the model call entirely.
     lex = np.array([[_containment(c, chunk) for chunk in src] for c in claims])
-    hybrid = np.maximum(sim, lex)
+    lex_best = lex.max(axis=1)
+    needs_embedding = [i for i, v in enumerate(lex_best) if v < SUPPORT_TAU]
+
+    hybrid = lex.copy()
+    embedded = 0
+    if needs_embedding:
+        subset = [claims[i] for i in needs_embedding]
+        vecs = provider.embed(subset + src)
+        cv = np.array(vecs[: len(subset)], dtype=float)
+        sv = np.array(vecs[len(subset):], dtype=float)
+        sim = _cos(cv, sv)
+        for row, i in enumerate(needs_embedding):
+            hybrid[i] = np.maximum(hybrid[i], sim[row])
+        embedded = len(subset)
+
     best = hybrid.max(axis=1)
 
     supported = best >= SUPPORT_TAU
@@ -201,7 +218,9 @@ def detect(provider, answer: str, sources: list[str], prompt: str = "", **_) -> 
             "contradiction": bool(numeric_conflicts),
             "sources": len(src),
             "support_tau": SUPPORT_TAU,
-            "method": "hybrid: max(dense cosine, lexical containment) + numeric check",
+            "method": "lexical-first hybrid: containment, then dense cosine only where needed",
+            "claims_embedded": embedded,
+            "claims_resolved_lexically": len(claims) - embedded,
         },
         latency_ms=(time.perf_counter() - t0) * 1000,
         usage=usage,

@@ -232,10 +232,39 @@ never route to PASS however low-stakes the surface looks. Blast radius decides
 how much a *probable* failure is worth spending on; it must not be able to wave
 through a demonstrated one.
 
+## The console
+
+`http://127.0.0.1:8000` is a six-tab operator console, not a static page. Every
+panel reads from the running service.
+
+- **Assistants** - three governed assistants (customer support, internal
+  copilot, decision support), each with its own retrieval corpus, policy
+  profile and latency budget. Type a question: ControlPlane retrieves, the model
+  generates, and the gate decides what you are allowed to see. Repairs, surfaced
+  uncertainty and blocks are shown as the end user would experience them, and
+  the session-risk meter climbs as a conversation accumulates risk.
+- **Policy A/B** - one identical response evaluated under two policies side by
+  side, with both sets of thresholds, weights and latency budgets on screen.
+  This is the clearest demonstration in the system.
+- **Review queue** - escalations and blocks ordered by risk price, with
+  confirm and false-alarm buttons. Each verdict lands in the ledger and moves the
+  calibration offset, visibly.
+- **Tuning** - the measured operating-point curve with the shipped point marked.
+- **Complexity map** - each real-world complexity from the brief, what handles
+  it, the file it lives in, and a button that takes you to the tab that shows it.
+- **Ledger** - the hash chain with prev-hash links and a live integrity check.
+
 ## Key features
 
 - Model-agnostic sidecar; no retraining, no model internals, no application
   change beyond a base URL.
+- Three working assistants over separate retrieval corpora, with documents
+  carrying a governance grade (`governed` vs `loosely_governed`), because the
+  brief assumes a mix of well- and loosely-governed internal sources.
+- Lexical-first grounding: containment is computed for every claim before any
+  embedding call, so ordinary grounded traffic costs **zero model calls**. Added
+  latency p50 fell from 247 ms to under 4 ms when this and the embedding cache
+  landed.
 - Per-use-case policy profiles with independent thresholds, weights, latency
   budgets and inline/async detector splits.
 - Jurisdiction overlays (EU, India) that compose on top of any profile and only
