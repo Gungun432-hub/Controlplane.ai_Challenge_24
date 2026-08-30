@@ -107,6 +107,28 @@ def proxy_chat(body: ProxyBody) -> dict:
     return out
 
 
+@app.post("/api/seed")
+def seed() -> dict:
+    """Run a short burst of representative traffic through the real engine.
+
+    Called automatically by the dashboard on first load when the ledger is
+    empty, because a governance console showing zeros teaches a reviewer
+    nothing. These are real evaluations, not fixtures: same detectors, same
+    scorer, same router, same ledger entries as any other request.
+    """
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "demo"))
+    from seed import SEED_TRAFFIC  # noqa: PLC0415
+
+    before = TELEMETRY.snapshot()["requests"]
+    for row in SEED_TRAFFIC:
+        evaluate(GateRequest(**row))
+    after = TELEMETRY.snapshot()
+    return {"seeded": len(SEED_TRAFFIC), "requests_before": before,
+            "requests_after": after["requests"], "routes": after["routes"]}
+
+
 @app.get("/api/policies")
 def policies() -> dict:
     return {"profiles": REGISTRY.list_profiles(),

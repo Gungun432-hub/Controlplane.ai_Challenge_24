@@ -90,9 +90,18 @@ pip install -r requirements.txt
 uvicorn controlplane.app:app --port 8000
 ```
 
-That is the whole setup. No `.env`, no key, no further configuration. Open
-http://127.0.0.1:8000 for the live dashboard and click any scenario button;
-interactive API docs are at http://127.0.0.1:8000/docs.
+That is the whole setup. No `.env`, no key, no further configuration.
+
+Open http://127.0.0.1:8000. On a fresh clone the ledger is empty, so the
+dashboard runs a short burst of representative traffic through the engine on
+first load and arrives populated - fourteen requests across three use-case
+profiles, showing passes, escalations and one hard block. Those are real
+evaluations, not fixtures: the same detectors, scorer, router and ledger entries
+as any other request. The scenario buttons along the bottom then let you drive
+specific cases, and the policy dropdowns let you re-run the same response under
+a different profile or jurisdiction.
+
+Interactive API docs are at http://127.0.0.1:8000/docs.
 
 Confirm which mode you are in:
 

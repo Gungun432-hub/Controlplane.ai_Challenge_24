@@ -160,6 +160,21 @@ async function boot(){
   const p = await (await fetch(API+"/api/policies")).json();
   $("profile").innerHTML = p.profiles.map(x=>`<option value="${x.id}">${x.name}</option>`).join("");
   $("juris").innerHTML += p.jurisdictions.map(x=>`<option value="${x.id}">${x.name}</option>`).join("");
+
+  // First load on a fresh clone: the ledger is empty, and a governance console
+  // showing zeros teaches a reviewer nothing. Run a short burst of real traffic
+  // through the engine so the page is alive on arrival.
+  const t = await (await fetch(API+"/api/telemetry")).json();
+  if(!t.requests){
+    $("stream").innerHTML = `<div class="req" style="border-style:dashed">
+      <div class="q">Running a first burst of representative traffic through the engine…</div>
+      <div class="why">These are real evaluations, not fixtures. Same detectors, same
+      scorer, same router, same ledger entries as any other request.</div></div>`;
+    try { await fetch(API+"/api/seed", {method:"POST"}); }
+    catch(e){ $("stream").innerHTML = `<div class="req"><div class="q">Could not seed
+      automatically — click any scenario button below to generate traffic.</div></div>`; }
+    $("stream").innerHTML = "";
+  }
   poll(); setInterval(poll, 1500);
 }
 
