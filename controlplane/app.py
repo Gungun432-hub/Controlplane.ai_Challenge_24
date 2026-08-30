@@ -77,7 +77,8 @@ class OverrideBody(BaseModel):
 def health() -> dict:
     p = get_provider()
     return {"status": "ok", "provider": p.name, "live": SETTINGS.live,
-            "judge_model": SETTINGS.judge_model if SETTINGS.live else None}
+            "judge_model": SETTINGS.judge_model if SETTINGS.live else None,
+            "config": SETTINGS.status}
 
 
 @app.post("/v1/gate")

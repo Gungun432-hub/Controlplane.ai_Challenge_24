@@ -103,11 +103,18 @@ a different profile or jurisdiction.
 
 Interactive API docs are at http://127.0.0.1:8000/docs.
 
-Confirm which mode you are in:
+Confirm which mode you are in. `/health` explains itself rather than leaving you
+to guess why it is in the mode it is in:
 
 ```
 curl http://127.0.0.1:8000/health
-# {"status":"ok","provider":"offline","live":false,...}
+```
+
+```json
+{"status":"ok","provider":"offline","live":false,
+ "config":{"env_file_found":false,"provider_configured":"offline",
+           "api_key_present":false,
+           "reason":"no .env file ... Offline is the intended default"}}
 ```
 
 To reproduce every result quoted in this document:
@@ -443,6 +450,12 @@ is trying to prevent.
   per regulated sector.
 
 ## Troubleshooting
+
+**I set a key in `.env` but `/health` still says offline.** Read the `config`
+block that `/health` returns; it names the cause. The usual ones are that `.env`
+sits somewhere other than the repository root, or `CONTROLPLANE_PROVIDER` is
+still `offline`. A real environment variable always overrides the file, so
+`set CONTROLPLANE_PROVIDER=gemini` in the shell will win regardless.
 
 **Do I need an API key to review this?** No. See "Running this without an API
 key" above. If `GET /health` reports `"provider":"offline"`, everything in this

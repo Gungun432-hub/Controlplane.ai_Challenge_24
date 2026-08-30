@@ -22,6 +22,35 @@ DATA_DIR = ROOT.parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 
+def _load_dotenv(path: Path) -> None:
+    """Read a .env file into the process environment.
+
+    Written by hand rather than pulled in as a dependency: it is fifteen lines,
+    and a governance tool asking a reviewer to install a package before it can
+    read its own configuration is a poor first impression.
+
+    Real environment variables always win over the file, so
+    `set CONTROLPLANE_PROVIDER=gemini` on the command line overrides whatever
+    the file says. Quotes are stripped, blank lines and # comments ignored.
+    """
+    if not path.exists():
+        return
+    for raw in path.read_text(encoding="utf-8-sig").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+ENV_FILE_FOUND = ENV_PATH.exists()
+_load_dotenv(ENV_PATH)
+
+
 def _env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
 
@@ -37,6 +66,24 @@ class Settings:
     @property
     def live(self) -> bool:
         return self.provider == "gemini" and bool(self.gemini_api_key)
+
+    @property
+    def status(self) -> dict:
+        """Why the service is in the mode it is in. Saves a reviewer guessing."""
+        if self.live:
+            reason = "live: provider=gemini and a key is set"
+        elif self.provider == "gemini":
+            reason = ("provider is gemini but GEMINI_API_KEY is empty, so the offline "
+                      "provider is in use")
+        elif ENV_FILE_FOUND:
+            reason = (".env was found and read, but CONTROLPLANE_PROVIDER is not 'gemini'. "
+                      "Offline is the intended default.")
+        else:
+            reason = ("no .env file at %s. Offline is the intended default and needs no "
+                      "configuration." % ENV_PATH)
+        return {"env_file_found": ENV_FILE_FOUND, "env_file_path": str(ENV_PATH),
+                "provider_configured": self.provider, "api_key_present": bool(self.gemini_api_key),
+                "reason": reason}
 
 
 SETTINGS = Settings()
