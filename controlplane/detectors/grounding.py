@@ -103,7 +103,8 @@ def _cos(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return an @ bn.T
 
 
-def detect(provider, answer: str, sources: list[str], prompt: str = "", **_) -> Signal:
+def detect(provider, answer: str, sources: list[str], prompt: str = "",
+           source_grades: list[str] | None = None, **_) -> Signal:
     t0 = time.perf_counter()
     claims = _sentences(answer, checkable_only=True)
     usage = Usage()
@@ -204,10 +205,26 @@ def detect(provider, answer: str, sources: list[str], prompt: str = "", **_) -> 
         score = min(1.0, score + 0.20 * len(numeric_conflicts))
     evidence = evidence_numeric + evidence
 
+    # Source governance. The brief assumes a mix of well-governed and loosely
+    # governed internal sources feeding these systems. A claim supported only by
+    # an unowned wiki page is supported more weakly than one traced to an owned,
+    # versioned document, so the grade lowers our confidence in the verdict and
+    # raises the residual risk rather than being decorative metadata.
+    grades = source_grades or []
+    loose = sum(1 for g in grades if g != "governed")
+    loose_share = (loose / len(grades)) if grades else 0.0
+    confidence = 0.8 if len(src) >= 3 else 0.6
+    confidence *= (1.0 - 0.35 * loose_share)
+    if loose_share:
+        score = min(1.0, score + 0.18 * loose_share)
+        evidence.append(
+            f"{loose} of {len(grades)} supporting sources are loosely governed "
+            f"(unowned or unreviewed), so support is weaker than it looks")
+
     return Signal(
         "grounding",
         score=float(score),
-        confidence=0.8 if len(src) >= 3 else 0.6,
+        confidence=float(confidence),
         labels=labels,
         evidence=evidence,
         detail={
@@ -217,6 +234,8 @@ def detect(provider, answer: str, sources: list[str], prompt: str = "", **_) -> 
             "numeric_conflicts": len(numeric_conflicts),
             "contradiction": bool(numeric_conflicts),
             "sources": len(src),
+            "loosely_governed_sources": loose,
+            "source_grades": grades,
             "support_tau": SUPPORT_TAU,
             "method": "lexical-first hybrid: containment, then dense cosine only where needed",
             "claims_embedded": embedded,

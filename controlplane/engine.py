@@ -43,6 +43,7 @@ class GateRequest:
     app: str = "unnamed-app"
     model: str = "unknown"
     logprob_hint: float | None = None
+    source_grades: list[str] = field(default_factory=list)
     force_offline: bool = False   # seeded/demo traffic: never spend live quota
 
 
@@ -83,6 +84,7 @@ def _run_detector(name: str, provider, req: GateRequest, session_prompts: list[s
             sources=req.sources,
             task_class=req.task_class,
             session_prompts=session_prompts,
+            source_grades=req.source_grades,
             logprob_hint=req.logprob_hint,
         )
     except Exception as exc:  # noqa: BLE001

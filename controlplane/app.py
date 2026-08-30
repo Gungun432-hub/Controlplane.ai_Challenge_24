@@ -206,6 +206,7 @@ def chat(body: ChatBody) -> dict:
     regulated = body.use_case in ("customer_support", "decision_support")
     result = evaluate(GateRequest(
         prompt=body.message, answer=raw_answer, sources=sources,
+        source_grades=[d["grade"] for d in docs],
         profile=body.use_case, jurisdiction=body.jurisdiction,
         action_class=body.action_class, regulated=regulated,
         session_id=f"{body.use_case}:{body.session_id}",

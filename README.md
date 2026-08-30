@@ -461,6 +461,27 @@ prints what actually happened, including the resolved policy for each run.
   gives you is detection, and `GET /api/ledger/verify` reports the first index
   where it broke. We are not calling this a blockchain and it is not immutable.
 
+## Coverage against the brief
+
+`docs/COVERAGE.md` walks all sixteen points the Round 2 brief names for this
+track - seven real-world complexities, six solutioning areas, three reference
+parameters - with what implements each, where the code lives, and how to see it
+running. It also lists what we deliberately do not claim.
+
+Two of those points are worth pulling forward because they are measured rather
+than argued:
+
+- **Volume.** `python eval/capacity.py` runs the real gate under concurrency:
+  **303 gated requests per second** on one process, p50 39 ms and p95 55 ms under
+  load, which is roughly 183 million interactions per week against the brief's
+  reference of tens of thousands. Throughput is not the constraint; reviewer
+  attention is.
+- **Source governance.** Every document carries a grade and an owner, and the
+  grade is not decorative: a loosely-governed source lowers the confidence of the
+  grounding verdict and raises residual risk, because a claim supported only by
+  an unowned wiki page is supported more weakly than one traced to an owned,
+  versioned document.
+
 ## Limitations and what we did not build
 
 Stated plainly, because a governance tool that oversells itself is the joke it
