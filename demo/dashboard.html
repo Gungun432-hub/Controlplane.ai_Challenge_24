@@ -299,6 +299,14 @@ async function send(){
   const r=await fetch(API+'/v1/chat',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({message:text,use_case:$('useCase').value,
       jurisdiction:$('chatJuris').value||null,session_id:SESSION})});
+  if(!r.ok){
+    const body=await r.text();
+    ph.outerHTML=`<div class="msg bot"><div class="bothead"><span class="badge block">ERROR ${r.status}</span>
+      <span style="font-size:10px;color:var(--dim)">the service returned an error</span></div>
+      <div class="botbody" style="color:#FFB3B9;font-family:monospace;font-size:11px">${esc(body.slice(0,400))}</div>
+      <div class="notice blk">Run <b>/api/diag</b> for a single live round-trip against the provider with the raw error.</div></div>`;
+    return;
+  }
   const d=await r.json();
   ph.outerHTML=botCard(d);
  }catch(e){ ph.innerHTML=`<div class="botbody" style="color:var(--block)">request failed: ${esc(String(e))}</div>`; }
@@ -314,6 +322,7 @@ function botCard(d){
  if(d.decision.surfaced_uncertainty) notice+=`<div class="notice warn"><b>Shown to the user:</b> ${esc(d.decision.surfaced_uncertainty)}</div>`;
  if(repaired) notice+=`<div class="notice rep"><b>Repaired inline:</b> ${d.decision.repairs.join(', ')} — the user was not made to wait for a human.</div>`;
  if(blocked) notice+=`<div class="notice blk"><b>Blocked:</b> ${esc(d.decision.reason)}</div>`;
+ if(d.generation_error) notice+=`<div class="notice blk"><b>Model unreachable:</b> <span style="font-family:monospace">${esc(d.generation_error)}</span><br>The governance layer still ran on the text above. Check <b>/api/diag</b>.</div>`;
  const srcs=(d.retrieved||[]).map(s=>`<span class="tag ${s.grade==='governed'?'gov':'loose'}">${s.id} · ${s.grade.replace('_',' ')}</span>`).join('')
    || '<span class="tag loose">no sources retrieved — answer is unverifiable</span>';
  return `<div class="msg bot">

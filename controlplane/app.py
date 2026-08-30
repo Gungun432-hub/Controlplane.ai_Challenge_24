@@ -28,6 +28,7 @@ from .engine import GateRequest, evaluate
 from .feedback import CALIBRATOR
 from .ledger import LEDGER
 from .providers import get_provider
+from .providers.base import Usage
 from .session import SESSIONS
 from .telemetry import TELEMETRY
 
@@ -181,9 +182,19 @@ def chat(body: ChatBody) -> dict:
         sources="\n\n".join(f"[{d['id']}] {d['text']}" for d in docs) or "(none retrieved)",
         question=body.message,
     )
-    outs, usage = provider.complete(prompt, n=1, temperature=0.3)
+    gen_error = None
+    try:
+        outs, usage = provider.complete(prompt, n=1, temperature=0.3)
+    except Exception as exc:  # noqa: BLE001
+        # A model outage must not take the governance layer down with it. We
+        # report the failure honestly and still gate whatever text we have.
+        gen_error = f"{type(exc).__name__}: {str(exc)[:300]}"
+        outs, usage = [], Usage()
+
     raw_answer = (outs[0] if outs else "").strip()
-    if not raw_answer or raw_answer.startswith("[offline-sample"):
+    if gen_error:
+        raw_answer = f"(the model could not be reached: {gen_error})"
+    elif not raw_answer or raw_answer.startswith("[offline-sample"):
         # Offline provider cannot generate. Say so rather than invent an answer.
         raw_answer = ("(offline mode: no model is configured, so this assistant cannot "
                       "generate a reply. Set CONTROLPLANE_PROVIDER=gemini to see live "
@@ -202,6 +213,7 @@ def chat(body: ChatBody) -> dict:
     out["raw_answer"] = raw_answer
     out["retrieved"] = docs
     out["generation_usage"] = usage.as_dict()
+    out["generation_error"] = gen_error
     return out
 
 
@@ -274,6 +286,41 @@ def tuning() -> dict:
         "sweep_pass_threshold": doc.get("sweep_pass_threshold", []),
         "cases": len(doc.get("rows", [])),
     }
+
+
+@app.get("/api/diag")
+def diag() -> dict:
+    """One live round-trip against the configured provider, with the raw error.
+
+    Exists because "Internal Server Error" is a useless thing to show anyone.
+    If the live path is broken this says which call failed and what the provider
+    actually returned.
+    """
+    p = get_provider()
+    report: dict[str, Any] = {"provider": p.name, "live": SETTINGS.live,
+                              "config": SETTINGS.status}
+    inner = getattr(p, "_inner", p)
+    report["judge_model"] = getattr(inner, "judge_model", None)
+    report["embed_model"] = getattr(inner, "embed_model", None)
+    key = SETTINGS.gemini_api_key
+    report["api_key"] = {"present": bool(key), "length": len(key),
+                         "prefix": key[:4] + "..." if key else None,
+                         "looks_like_studio_key": key.startswith("AIza") if key else False}
+
+    try:
+        outs, usage = p.complete("Reply with exactly the word: OK", n=1, temperature=0.0)
+        report["completion"] = {"ok": True, "text": (outs[0] if outs else "")[:200],
+                                "usage": usage.as_dict()}
+    except Exception as exc:  # noqa: BLE001
+        report["completion"] = {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:600]}"}
+
+    try:
+        v = p.embed(["hello world"])
+        report["embedding"] = {"ok": True, "dimensions": len(v[0]) if v else 0}
+    except Exception as exc:  # noqa: BLE001
+        report["embedding"] = {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:600]}"}
+
+    return report
 
 
 @app.get("/api/cache")
