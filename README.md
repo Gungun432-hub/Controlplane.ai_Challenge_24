@@ -19,8 +19,34 @@ wrong is expensive.
 Built for the Accenture Innovation Challenge 2026, Round 2, Problem Track 1
 (ControlPlane.ai), by team Challenge_24.
 
+## Running this without an API key
+
+**You do not need an API key to run this project.** Clone it, install the
+requirements, start the server, and everything works: the dashboard, all
+scenarios, the full evaluation harness. ControlPlane ships an offline provider
+so a reviewer can verify every claim in this document on a laptop with no
+account, no billing and no network.
+
+There are two modes, and the service tells you which one it is in at
+`GET /health`.
+
+| Mode | Setup | What runs | What is different |
+| --- | --- | --- | --- |
+| **Offline** (default) | nothing | detectors, routing, policy, ledger, telemetry, evaluation | embeddings come from a local hashing vectoriser; self-consistency and the bias probe abstain, because neither is meaningful without a real model to resample |
+| **Live** | your own Gemini key in `.env` | all of the above, plus Gemini embeddings and LLM-as-judge | the two abstaining detectors activate |
+
+If you want the live path, the key is **yours, not ours** - get a free one at
+<https://aistudio.google.com/apikey>, put it in a local `.env`, and set
+`CONTROLPLANE_PROVIDER=gemini`. No credential of ours is in this repository, and
+none is needed to evaluate it.
+
+Offline results deliberately **under-report** what the live system detects. We
+would rather a reviewer see a lower number they can reproduce than a higher one
+they cannot.
+
 ## Table of contents
 
+- Running this without an API key
 - Requirements
 - Installation
 - Configuration
@@ -49,9 +75,10 @@ Python 3.10 or newer. All Python dependencies are listed in
 - `numpy` and `scikit-learn` - embeddings and vector maths
 - `httpx` - provider calls
 
-No API key is required. The project ships an offline provider so the whole
-system, including the evaluation harness, runs with no network access. A Google
-AI Studio key enables the live path (Gemini embeddings and LLM-as-judge).
+**No API key, no account and no network access are required to run or evaluate
+this project.** The offline provider is the default and is a real code path, not
+a mock: the same detectors, the same router, the same ledger. A Google AI Studio
+key is optional and enables the live path only.
 
 ## Installation
 
@@ -63,8 +90,16 @@ pip install -r requirements.txt
 uvicorn controlplane.app:app --port 8000
 ```
 
-Open http://127.0.0.1:8000 for the live dashboard. Interactive API docs are at
-http://127.0.0.1:8000/docs.
+That is the whole setup. No `.env`, no key, no further configuration. Open
+http://127.0.0.1:8000 for the live dashboard and click any scenario button;
+interactive API docs are at http://127.0.0.1:8000/docs.
+
+Confirm which mode you are in:
+
+```
+curl http://127.0.0.1:8000/health
+# {"status":"ok","provider":"offline","live":false,...}
+```
 
 To reproduce every result quoted in this document:
 
@@ -75,11 +110,16 @@ python demo/run_scenarios.py         # the scenario suite, against a running ser
 
 ## Configuration
 
-Copy `.env.example` to `.env`. The file is gitignored and must never be
-committed.
+**This entire section is optional.** Skip it and the defaults run offline.
+
+To enable the live path, copy `.env.example` to `.env` and add your own key.
+`.env` is gitignored and is never committed; `.env.example` holds the same keys
+with empty values so you can see the shape of the config without anyone's
+credentials.
 
 - `CONTROLPLANE_PROVIDER` - `offline` (default) or `gemini`
-- `GEMINI_API_KEY` - required only when the provider is `gemini`
+- `GEMINI_API_KEY` - your own key, required only when the provider is `gemini`.
+  Free keys are available at <https://aistudio.google.com/apikey>
 - `GEMINI_JUDGE_MODEL` - default `gemini-flash-latest`
 - `GEMINI_EMBED_MODEL` - default `text-embedding-004`
 - `LEDGER_SIGNING_KEY` - HMAC key for the trust ledger; generate your own
@@ -387,6 +427,10 @@ is trying to prevent.
   per regulated sector.
 
 ## Troubleshooting
+
+**Do I need an API key to review this?** No. See "Running this without an API
+key" above. If `GET /health` reports `"provider":"offline"`, everything in this
+document except the two live-only detectors is reproducible as-is.
 
 **The server starts but the dashboard is empty.** The stream is populated from
 the trust ledger, which starts empty. Click a scenario button, or run
