@@ -59,7 +59,7 @@ def _env(name: str, default: str = "") -> str:
 class Settings:
     provider: str = field(default_factory=lambda: _env("CONTROLPLANE_PROVIDER", "offline"))
     gemini_api_key: str = field(default_factory=lambda: _env("GEMINI_API_KEY"))
-    judge_model: str = field(default_factory=lambda: _env("GEMINI_JUDGE_MODEL", "gemini-flash-latest"))
+    judge_model: str = field(default_factory=lambda: _env("GEMINI_JUDGE_MODEL", "gemini-2.0-flash"))
     embed_model: str = field(default_factory=lambda: _env("GEMINI_EMBED_MODEL", "text-embedding-004"))
     ledger_key: str = field(default_factory=lambda: _env("LEDGER_SIGNING_KEY", "dev-only-not-a-secret"))
 

@@ -99,7 +99,8 @@ def health() -> dict:
     inner = getattr(p, "_inner", p)
     lim = getattr(inner, "limiter", None)
     return {"status": "ok", "provider": p.name, "live": SETTINGS.live,
-            "judge_model": SETTINGS.judge_model if SETTINGS.live else None,
+            "judge_model": getattr(inner, "_resolved_model", None) or (
+                SETTINGS.judge_model if SETTINGS.live else None),
             "config": SETTINGS.status,
             "quota": lim.stats() if lim else None}
 
@@ -305,7 +306,11 @@ def diag() -> dict:
                               "config": SETTINGS.status}
     inner = getattr(p, "_inner", p)
     lim = getattr(inner, "limiter", None)
-    report["quota"] = lim.stats() if lim else {"available": False}
+    emb = getattr(inner, "embed_limiter", None)
+    report["quota"] = {"generation": lim.stats() if lim else None,
+                       "embedding": emb.stats() if emb else None,
+                       "resolved_model": getattr(inner, "_resolved_model", None),
+                       "model_chain": getattr(inner, "_model_chain", None)}
     report["judge_model"] = getattr(inner, "judge_model", None)
     report["embed_model"] = getattr(inner, "embed_model", None)
     key = SETTINGS.gemini_api_key
@@ -327,6 +332,28 @@ def diag() -> dict:
         report["embedding"] = {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:600]}"}
 
     return report
+
+
+@app.get("/api/models")
+def models() -> dict:
+    """Which models this key can actually call.
+
+    Model aliases move and free-tier allowances differ sharply between them, so
+    when generation fails this is the first thing worth looking at.
+    """
+    p = get_provider()
+    inner = getattr(p, "_inner", p)
+    if not hasattr(inner, "list_models"):
+        return {"available": False, "reason": "offline provider"}
+    try:
+        ms = inner.list_models()
+    except Exception as exc:  # noqa: BLE001
+        return {"available": False, "error": f"{type(exc).__name__}: {str(exc)[:300]}"}
+    return {"available": True,
+            "resolved_model": getattr(inner, "_resolved_model", None),
+            "chain": getattr(inner, "_model_chain", []),
+            "generation": [m for m in ms if m["generate"]][:40],
+            "embedding": [m for m in ms if m["embed"]][:20]}
 
 
 @app.get("/api/cache")

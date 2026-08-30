@@ -91,6 +91,20 @@ class RateLimiter:
                 "per_day_used": d, "per_day_limit": self.rpd,
                 "day_remaining": max(0, self.rpd - d)}
 
+    def list_models(self) -> list[dict]:  # pragma: no cover - network
+        raise NotImplementedError
+
+
+# Generation models, tried in order. The `-latest` aliases point at the newest
+# Flash, which carries the *smallest* free-tier allowance and is the most likely
+# to return 503 under load, so it is the last resort rather than the default.
+GENERATION_FALLBACKS = [
+    "gemini-2.0-flash",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-flash-latest",
+]
+
 
 class GeminiProvider:
     name = "gemini"
@@ -100,21 +114,36 @@ class GeminiProvider:
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
         if not self.api_key:
             raise RuntimeError("GEMINI_API_KEY is not set; use CONTROLPLANE_PROVIDER=offline instead")
-        self.judge_model = judge_model or os.environ.get("GEMINI_JUDGE_MODEL", "gemini-flash-latest")
+        self.judge_model = judge_model or os.environ.get("GEMINI_JUDGE_MODEL", "gemini-2.0-flash")
         self.embed_model = embed_model or os.environ.get("GEMINI_EMBED_MODEL", "text-embedding-004")
         self._client = httpx.Client(timeout=timeout, headers={"x-goog-api-key": self.api_key})
+        # Two buckets, because generation and embedding are metered separately by
+        # the provider and embedding allowances are far larger. Counting them
+        # together made a single chat turn look like three or four requests
+        # against a generation budget it never touched.
         self.limiter = RateLimiter(
-            rpm=int(os.environ.get("GEMINI_RPM", "4")),
-            rpd=int(os.environ.get("GEMINI_RPD", "18")),
+            rpm=int(os.environ.get("GEMINI_RPM", "10")),
+            rpd=int(os.environ.get("GEMINI_RPD", "180")),
+        )
+        self.embed_limiter = RateLimiter(
+            rpm=int(os.environ.get("GEMINI_EMBED_RPM", "60")),
+            rpd=int(os.environ.get("GEMINI_EMBED_RPD", "1200")),
+        )
+        # Model chosen at first use and remembered, so one 503 does not cost a
+        # fallback probe on every later call.
+        self._resolved_model: str | None = None
+        self._model_chain = (
+            [self.judge_model] + [m for m in GENERATION_FALLBACKS if m != self.judge_model]
         )
         self._completions: dict[str, str] = {}   # prompt hash -> text
         self._clock = threading.Lock()
 
-    def _post(self, url: str, body: dict, attempts: int = 3) -> dict:
-        """One rate-limited call, retrying a 429 with exponential backoff."""
+    def _post(self, url: str, body: dict, attempts: int = 3, embedding: bool = False) -> dict:
+        """One rate-limited call, retrying 429 and 5xx with exponential backoff."""
         last: Exception | None = None
+        limiter = self.embed_limiter if embedding else self.limiter
         for i in range(attempts):
-            self.limiter.acquire()
+            limiter.acquire()
             try:
                 r = self._client.post(url, json=body)
                 if r.status_code == 429:
@@ -145,13 +174,38 @@ class GeminiProvider:
                 for t in texts
             ]
         }
-        data = self._post(url, payload)
+        data = self._post(url, payload, embedding=True)
         return [e["values"] for e in data["embeddings"]]
 
     # -- completion ------------------------------------------------------------
+    def _generate(self, body: dict) -> tuple[dict, str]:
+        """Call the first generation model that answers.
+
+        A `-latest` alias can be overloaded (503) or renamed (404) without
+        warning. Rather than fail the request, walk a short chain of known models
+        and remember the one that worked.
+        """
+        chain = ([self._resolved_model] if self._resolved_model else []) + \
+                [m for m in self._model_chain if m != self._resolved_model]
+        last: Exception | None = None
+        for model in chain:
+            try:
+                data = self._post(f"{API_ROOT}/models/{model}:generateContent", body)
+                self._resolved_model = model
+                return data, model
+            except httpx.HTTPStatusError as exc:
+                code = exc.response.status_code if exc.response is not None else 0
+                if code in (404, 429, 503, 500):
+                    last = exc
+                    continue
+                raise
+            except Exception as exc:  # noqa: BLE001
+                last = exc
+                continue
+        raise last or RuntimeError("no generation model available")
+
     def complete(self, prompt: str, n: int = 1, temperature: float = 0.7) -> tuple[list[str], Usage]:
         """Sample n independent completions. Used for self-consistency."""
-        url = f"{API_ROOT}/models/{self.judge_model}:generateContent"
         outs, usage = [], Usage()
         for i in range(n):
             # Deterministic requests are cached. Re-asking a demo question should
@@ -164,7 +218,7 @@ class GeminiProvider:
                 "contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {"temperature": temperature, "maxOutputTokens": 512},
             }
-            data = self._post(url, body)
+            data, _model = self._generate(body)
             text = _first_text(data)
             outs.append(text)
             usage.add(_usage_from(data))
@@ -183,13 +237,12 @@ class GeminiProvider:
         prompt = (
             f"{JUDGE_SYSTEM}\n\nQUESTION:\n{question}\n\nANSWER:\n{answer}\n\nSOURCES:\n{src}\n\nJSON:"
         )
-        url = f"{API_ROOT}/models/{self.judge_model}:generateContent"
         body = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.0, "maxOutputTokens": 256,
                                  "responseMimeType": "application/json"},
         }
-        data = self._post(url, body)
+        data, _model = self._generate(body)
         usage = _usage_from(data)
         parsed = _parse_json(_first_text(data))
         if parsed is None:
@@ -202,6 +255,20 @@ class GeminiProvider:
             unverifiable=bool(parsed.get("unverifiable", False)),
             usage=usage,
         )
+
+
+    def list_models(self) -> list[dict]:
+        """What this key can actually call. Useful when a model alias moves."""
+        r = self._client.get(f"{API_ROOT}/models")
+        r.raise_for_status()
+        out = []
+        for m in r.json().get("models", []):
+            methods = m.get("supportedGenerationMethods", [])
+            out.append({"name": m.get("name", "").replace("models/", ""),
+                        "display": m.get("displayName"),
+                        "generate": "generateContent" in methods,
+                        "embed": "embedContent" in methods})
+        return out
 
 
 def _first_text(data: dict) -> str:

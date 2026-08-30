@@ -139,8 +139,22 @@ credentials.
 - `GEMINI_JUDGE_MODEL` - default `gemini-flash-latest`
 - `GEMINI_EMBED_MODEL` - default `text-embedding-004`
 - `LEDGER_SIGNING_KEY` - HMAC key for the trust ledger; generate your own
-- `GEMINI_RPM` / `GEMINI_RPD` - request budget, default 4 per minute and 18 per
-  day to sit inside the Gemini free tier. Raise them if your key has a paid quota
+- `GEMINI_RPM` / `GEMINI_RPD` - generation budget, default 10/min and 180/day
+- `GEMINI_EMBED_RPM` / `GEMINI_EMBED_RPD` - embedding budget, default 60/min and
+  1200/day. Kept separate because providers meter the two independently and
+  embedding allowances are far larger
+
+### Choosing a model
+
+`GEMINI_JUDGE_MODEL` defaults to `gemini-2.0-flash` rather than
+`gemini-flash-latest`. The `-latest` aliases point at the newest Flash model,
+which carries the *smallest* free-tier allowance and is the most likely to
+return 503 under load. If the configured model is unavailable the provider walks
+a short fallback chain and remembers whichever answers, so a single overloaded
+alias does not fail the request.
+
+`GET /api/models` lists what your key can actually call and which model the
+service settled on.
 
 ### Living inside a free-tier quota
 

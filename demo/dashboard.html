@@ -549,7 +549,7 @@ async function poll(){
 async function boot(){
  const h=await (await fetch(API+'/health')).json();
  $('prov').innerHTML=h.live?`provider: <b>${h.provider} · live model</b>`:`provider: ${h.provider} · no API key`;
- if(h.quota) $('quota').innerHTML=`quota <b>${h.quota.day_remaining}</b>/${h.quota.per_day_limit} left today`;
+ if(h.quota) $('quota').innerHTML=`model calls <b>${h.quota.day_remaining}</b>/${h.quota.per_day_limit} left today`;
  else $('quota').style.display='none';
  POLICIES=await (await fetch(API+'/api/policies')).json();
  const opts=POLICIES.profiles.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
@@ -564,7 +564,7 @@ async function boot(){
  setInterval(async()=>{ try{const c=await (await fetch(API+'/api/cache')).json();
    $('cache').textContent=`embed cache ${c.hit_rate_pct}% hit`;
    const hh=await (await fetch(API+'/health')).json();
-   if(hh.quota) $('quota').innerHTML=`quota <b>${hh.quota.day_remaining}</b>/${hh.quota.per_day_limit} left today`;
+   if(hh.quota) $('quota').innerHTML=`model calls <b>${hh.quota.day_remaining}</b>/${hh.quota.per_day_limit} left today`;
   }catch(e){} },5000);
 }
 boot();
