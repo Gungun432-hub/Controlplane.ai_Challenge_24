@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>ControlPlane — live oversight</title>
+<style>
+:root{--bg:#0A0A0F;--panel:#12121B;--p2:#171725;--line:#26263A;--txt:#EDEDF5;
+--dim:#8A8AA3;--dim2:#5E5E78;--purple:#A100FF;--plt:#C77DFF;
+--pass:#00C48C;--repair:#3B9EFF;--escalate:#FFB020;--block:#FF4757}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:Arial,Helvetica,sans-serif;
+height:100vh;overflow:hidden;display:flex;flex-direction:column;
+background-image:radial-gradient(circle at 10% -10%,rgba(161,0,255,.15),transparent 55%)}
+header{display:flex;align-items:center;gap:14px;padding:11px 20px;border-bottom:1px solid var(--line);flex-shrink:0}
+.logo{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--purple),#5B00A8);
+display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold}
+h1{font-size:16px}h1 span{color:var(--plt)}
+.sub{font-size:10.5px;color:var(--dim)}
+.pill{font-size:10px;border:1px solid var(--line);border-radius:20px;padding:5px 11px;background:var(--panel);color:var(--dim)}
+.live{margin-left:auto;display:flex;gap:8px;align-items:center}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--pass);animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+main{flex:1;display:grid;grid-template-columns:1.45fr 1fr;gap:12px;padding:12px 20px 0;min-height:0}
+.col{display:flex;flex-direction:column;gap:11px;min-height:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:13px 15px}
+.card h2{font-size:10.5px;letter-spacing:1.2px;color:var(--dim);text-transform:uppercase;margin-bottom:11px}
+.card h2 b{color:var(--plt);font-weight:normal}
+.stream{flex:1;overflow:auto;display:flex;flex-direction:column;gap:8px;min-height:0}
+.req{border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:var(--p2);
+position:relative;overflow:hidden;flex-shrink:0;animation:sl .35s}
+@keyframes sl{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+.req::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--dim2)}
+.req.pass::before{background:var(--pass)}.req.repair::before{background:var(--repair)}
+.req.escalate::before{background:var(--escalate)}.req.block::before{background:var(--block)}
+.rtop{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap}
+.app{font-size:9.5px;color:var(--plt);border:1px solid #4A1A73;border-radius:4px;padding:2px 6px}
+.mdl{font-size:9.5px;color:var(--dim2)}
+.badge{margin-left:auto;font-size:9.5px;font-weight:bold;letter-spacing:.6px;padding:3px 8px;border-radius:5px}
+.badge.pass{background:rgba(0,196,140,.15);color:var(--pass)}
+.badge.repair{background:rgba(59,158,255,.15);color:var(--repair)}
+.badge.escalate{background:rgba(255,176,32,.15);color:var(--escalate)}
+.badge.block{background:rgba(255,71,87,.18);color:var(--block)}
+.q{font-size:12px;color:#D5D5E5;line-height:1.35}
+.why{font-size:10.5px;color:var(--dim);margin-top:5px;padding-top:5px;border-top:1px dashed var(--line)}
+.why b{color:var(--txt);font-weight:normal}
+.metrics{display:flex;gap:10px;margin-top:7px;align-items:center}
+.m{flex:1}.m .lab{display:flex;justify-content:space-between;font-size:9px;color:var(--dim2);margin-bottom:2px}
+.bar{height:4px;background:#22223A;border-radius:2px;overflow:hidden}.bar i{display:block;height:100%}
+.price{text-align:right;min-width:74px}.pv{font-size:15px;font-weight:bold;line-height:1}
+.pl{font-size:8px;color:var(--dim2);letter-spacing:.4px}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.kpi{background:var(--p2);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+.kpi .v{font-size:19px;font-weight:bold}.kpi .l{font-size:9px;color:var(--dim);margin-top:2px}
+.kpi .s{font-size:8.5px;color:var(--dim2);margin-top:1px}
+.dist{display:flex;height:24px;border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.dist div{display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:bold;color:#0A0A0F;transition:flex-basis .5s;white-space:nowrap;overflow:hidden}
+.leg{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;font-size:9.5px;color:var(--dim)}
+.sw{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:4px}
+.ledger{flex:1;overflow:auto;font-size:10px;color:var(--dim);min-height:0}
+.lrow{display:flex;gap:7px;padding:3px 0;border-bottom:1px solid rgba(38,38,58,.5)}
+.hash{color:var(--plt);font-family:monospace}
+footer{flex-shrink:0;padding:10px 20px 12px;border-top:1px solid var(--line);margin-top:12px;
+display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.lbl{font-size:9.5px;color:var(--dim2);letter-spacing:1px}
+button,select{background:var(--p2);border:1px solid var(--line);color:var(--txt);font-family:inherit;
+font-size:10.5px;padding:7px 11px;border-radius:6px;cursor:pointer}
+button:hover{border-color:var(--purple);background:rgba(161,0,255,.12)}
+button.hot{border-color:rgba(255,71,87,.5)}
+.ok{color:var(--pass)}.bad{color:var(--block)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">◈</div>
+  <div><h1>Control<span>Plane</span></h1>
+  <div class="sub">Risk-priced oversight for enterprise AI — live from the running service</div></div>
+  <span class="pill" id="prov">provider …</span>
+  <div class="live"><span class="dot"></span><span class="pill" id="req">0 governed</span></div>
+</header>
+
+<main>
+  <div class="col">
+    <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:0">
+      <h2>Live response stream <b id="hdr">— every decision below came from the API</b></h2>
+      <div class="stream" id="stream"></div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card">
+      <h2>Runtime telemetry</h2>
+      <div class="kpis">
+        <div class="kpi"><div class="v" id="k1" style="color:var(--pass)">–</div>
+          <div class="l">ADDED LATENCY p50 / p95</div><div class="s">measured, not asserted</div></div>
+        <div class="kpi"><div class="v" id="k2" style="color:var(--plt)">–</div>
+          <div class="l">JUDGE CALL RATE</div><div class="s">expensive check, rationed by policy</div></div>
+        <div class="kpi"><div class="v" id="k3" style="color:var(--escalate)">–</div>
+          <div class="l">MODEL CALLS / TOKENS</div><div class="s">oversight's own footprint</div></div>
+        <div class="kpi"><div class="v" id="k4" style="color:var(--repair)">–</div>
+          <div class="l">EST. COST / 1K INTERACTIONS</div><div class="s">list price, Flash tier</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Routing mix <b>— graded, not binary</b></h2>
+      <div class="dist">
+        <div id="d0" style="flex:0 0 25%;background:var(--pass)">PASS</div>
+        <div id="d1" style="flex:0 0 25%;background:var(--repair)">REPAIR</div>
+        <div id="d2" style="flex:0 0 25%;background:var(--escalate)">ESC</div>
+        <div id="d3" style="flex:0 0 25%;background:var(--block)">BLK</div>
+      </div>
+      <div class="leg" id="leg"></div>
+    </div>
+    <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:0">
+      <h2>Trust ledger <b id="verif">— verifying…</b></h2>
+      <div class="ledger" id="ledger"></div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span class="lbl">POLICY</span>
+  <select id="profile"></select>
+  <select id="juris"><option value="">no jurisdiction overlay</option></select>
+  <span class="lbl">SCENARIO</span>
+  <button onclick="fire('grounded')">Grounded answer</button>
+  <button onclick="fire('contradiction')">Contradicts source</button>
+  <button onclick="fire('pii')">Personal data</button>
+  <button onclick="fire('overlap')">Fabrication about a person</button>
+  <button onclick="fire('unverifiable')">No sources</button>
+  <button class="hot" onclick="fire('execute')">Irreversible action</button>
+  <button onclick="verify()">Verify ledger</button>
+</footer>
+
+<script>
+const API = location.origin;
+const FUND = "The Horizon Balanced Fund targets 6 to 7 percent annualised over a rolling five-year period. Returns are not guaranteed and capital is at risk.";
+const KB   = "Band 8 employees accrue 21 days of annual leave. Notice period for band 8 is 60 days.";
+const CLAIM= "Policy HX-4412 covers accidental damage up to INR 200,000 with a INR 5,000 deductible.";
+
+const SCEN = {
+  grounded:{app:"wealth-advisory",prompt:"What does the Horizon fund target?",
+    answer:"The fund targets 6 to 7 percent annualised and returns are not guaranteed.",sources:[FUND],action_class:"advise"},
+  contradiction:{app:"hr-copilot",prompt:"What is the notice period for band 8?",
+    answer:"Band 8 employees serve a 90 day notice period and accrue 30 days of leave.",sources:[KB],action_class:"draft"},
+  pii:{app:"contact-centre",prompt:"Send the payment confirmation.",
+    answer:"Your payment on card 4539578763621486 was received. Reference AC-90218.",sources:[CLAIM],action_class:"advise"},
+  overlap:{app:"claims-desk",prompt:"Summarise the claimant on HX-4412.",
+    answer:"Rahul Sharma has filed 4 previous fraudulent claims and was flagged by underwriting in 2024.",sources:[CLAIM],action_class:"draft"},
+  unverifiable:{app:"tax-helper",prompt:"Am I eligible for the rebate?",
+    answer:"Yes, you qualify for a full rebate under section 80C for the entire premium.",sources:[],action_class:"advise"},
+  execute:{app:"treasury-bot",prompt:"Execute the vendor payment run for cycle 33.",
+    answer:"Executing payment run cycle 33 for INR 4,20,00,000 across 61 vendors.",sources:[],action_class:"execute"},
+};
+
+const $ = id => document.getElementById(id);
+let seen = new Set();
+
+async function boot(){
+  const h = await (await fetch(API+"/health")).json();
+  $("prov").textContent = `provider: ${h.provider}${h.live? " · live model" : " · no API key"}`;
+  const p = await (await fetch(API+"/api/policies")).json();
+  $("profile").innerHTML = p.profiles.map(x=>`<option value="${x.id}">${x.name}</option>`).join("");
+  $("juris").innerHTML += p.jurisdictions.map(x=>`<option value="${x.id}">${x.name}</option>`).join("");
+  poll(); setInterval(poll, 1500);
+}
+
+async function fire(key){
+  const s = SCEN[key];
+  const body = Object.assign({}, s, {
+    profile: $("profile").value,
+    jurisdiction: $("juris").value || null,
+    regulated: true, session_id: "dashboard",
+  });
+  await fetch(API+"/v1/gate", {method:"POST",headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(body)});
+  poll();
+}
+
+function meter(label, v){
+  const pct = Math.round(v*100);
+  const c = v>.6?"var(--block)":v>.35?"var(--escalate)":"var(--pass)";
+  return `<div class="m"><div class="lab"><span>${label}</span><span>${pct}%</span></div>
+    <div class="bar"><i style="width:${pct}%;background:${c}"></i></div></div>`;
+}
+
+function renderEntry(e){
+  const r = e.record; if(!r || !r.decision) return null;
+  const d = r.decision, risk = r.risk;
+  const col = {pass:"--pass",repair:"--repair",escalate:"--escalate",block:"--block"}[d.action];
+  const c = risk.contributions || {};
+  const el = document.createElement("div");
+  el.className = "req "+d.action;
+  el.innerHTML = `
+   <div class="rtop">
+     <span class="app">${r.app}</span>
+     <span class="mdl">${r.policy.id} · ${r.action_class} · +${r.added_latency_ms}ms
+       ${r.judge_used? "· judge":""}</span>
+     <span class="badge ${d.action}">${d.action.toUpperCase()}</span>
+   </div>
+   <div class="q">"${(r.answer_preview||"").slice(0,150)}"</div>
+   <div class="metrics">
+     ${meter("GROUNDING", c.grounding||0)}${meter("PRIVACY", c.pii||0)}${meter("WASTE", c.cost||0)}
+     <div class="price"><div class="pv" style="color:var(${col})">${risk.price}</div>
+       <div class="pl">RISK PRICE ${risk.band[0]}–${risk.band[1]}</div></div>
+   </div>
+   <div class="why"><b>${(risk.labels||[]).join(", ")||"no labels"}</b> — ${d.reason}
+     ${d.repairs && d.repairs.length? "<br>repairs: "+d.repairs.join(", "):""}
+     ${d.surfaced_uncertainty? "<br>surfaced: "+d.surfaced_uncertainty:""}</div>`;
+  return el;
+}
+
+async function poll(){
+  const t = await (await fetch(API+"/api/telemetry")).json();
+  $("req").textContent = `${t.requests} governed`;
+  const L = t.added_latency_ms||{};
+  $("k1").textContent = `${L.p50??0} / ${L.p95??0} ms`;
+  $("k2").textContent = `${t.judge_rate_pct??0}%`;
+  $("k3").textContent = `${t.model_calls??0} / ${(t.tokens?.prompt||0)+(t.tokens?.output||0)}`;
+  $("k4").textContent = `$${(t.cost_usd_per_1k_interactions??0).toFixed(3)}`;
+  const share = t.route_share_pct||{};
+  ["pass","repair","escalate","block"].forEach((k,i)=>{
+    const pc = share[k]||0;
+    $("d"+i).style.flexBasis = Math.max(pc,2)+"%";
+    $("d"+i).textContent = pc>9? k.toUpperCase():"";
+  });
+  $("leg").innerHTML = ["pass","repair","escalate","block"].map(k=>
+    `<span><i class="sw" style="background:var(--${k==='block'?'block':k})"></i>${k} <b>${(t.routes||{})[k]||0}</b></span>`).join("");
+
+  const led = await (await fetch(API+"/api/ledger?limit=12")).json();
+  const stream = $("stream");
+  led.entries.slice().reverse().forEach(e=>{
+    const id = e.entry_hash;
+    if(seen.has(id)) return;
+    seen.add(id);
+    const el = renderEntry(e);
+    if(el){ stream.insertBefore(el, stream.firstChild);
+            while(stream.children.length>7) stream.removeChild(stream.lastChild); }
+  });
+  $("ledger").innerHTML = led.entries.slice().reverse().slice(0,14).map(e=>{
+    const r=e.record;
+    const what = r.type==="human_override"
+      ? `OVERRIDE by ${r.reviewer_id} → ${r.verdict}`
+      : `${r.app} · ${r.decision?.action?.toUpperCase()} · price ${r.risk?.price}`;
+    return `<div class="lrow"><span class="hash">#${e.index}</span>
+      <span class="hash">${e.entry_hash.slice(0,10)}</span><span>${what}</span></div>`;
+  }).join("");
+  const v = led.verification;
+  $("verif").innerHTML = v.valid
+    ? `— <span class="ok">chain intact, ${v.entries} entries, HMAC verified</span>`
+    : `— <span class="bad">BROKEN at #${v.broken_at}: ${v.reason}</span>`;
+}
+
+async function verify(){
+  const v = await (await fetch(API+"/api/ledger/verify")).json();
+  alert(v.valid ? `Ledger intact: ${v.entries} entries, hash chain and HMAC signatures verified.\nHead: ${v.head.slice(0,32)}…`
+                : `Ledger BROKEN at entry ${v.broken_at}: ${v.reason}`);
+}
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+# Policy profile: customer-facing support assistant.
+# Real-time, external audience, regulated content. Low risk tolerance,
+# but a hard latency budget - users are waiting on the response.
+id: customer_support
+name: Customer Support Assistant
+version: 3
+description: >
+  External, real-time chat. Answers are read by customers and may be relied on.
+  Tight latency budget, low tolerance for ungrounded or leaking output.
+
+audience: external
+latency_budget_ms: 800          # total added latency we may spend
+default_action_class: advise    # what the answer does downstream
+
+# Risk-price thresholds. Anything below `pass` is released untouched.
+thresholds:
+  pass: 22
+  repair: 40
+  escalate: 62
+
+# Per-dimension weights when combining detector signals into P(failure).
+weights:
+  grounding: 1.0
+  uncertainty: 0.9
+  pii: 1.0
+  bias: 0.8
+  cost: 0.4
+
+# Detectors permitted to run inline for this profile. Anything not listed
+# runs asynchronously after release, so it cannot spend the latency budget.
+inline_detectors: [pii, grounding, uncertainty]
+async_detectors: [cost, bias]
+
+# Escalation routing
+review_queue: cx-supervisors
+llm_judge:
+  enabled: true
+  min_risk_price: 60      # only pay for the judge above this price
+  max_calls_per_1k: 90    # hard budget: judge at most 9% of traffic
+
+repair_actions: [redact_pii, attach_citation, soften_overclaim]

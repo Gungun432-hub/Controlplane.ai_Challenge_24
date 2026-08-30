@@ -1,0 +1,54 @@
+
+ControlPlane evaluation - provider=offline
+cases evaluated: 30   skipped (live-only): 1
+
+                flagged   not flagged
+   should flag    15          0     
+    should not     0         15     
+
+precision 1.000   recall 1.000   F1 1.000
+false-positive rate 0.000   false-negative rate 0.000
+
+by category:
+  ambiguous      1/1
+  clean          11/11
+  hallucination  6/6
+  irreversible   1/1
+  lookalike      3/3
+  overlap        2/2
+  privacy        3/3
+  unverifiable   2/2
+  waste          1/1
+
+added latency  p50 1.3 ms   p95 1.7 ms
+
+operating-point sweep (shifting every pass threshold):
+ delta    prec  recall     FPR     FNR      F1
+   -14   0.882   1.000   0.133   0.000   0.938
+   -12   0.882   1.000   0.133   0.000   0.938
+   -10   0.882   1.000   0.133   0.000   0.938
+    -8   0.938   1.000   0.067   0.000   0.968
+    -6   0.938   1.000   0.067   0.000   0.968
+    -4   0.938   1.000   0.067   0.000   0.968
+    -2   1.000   1.000   0.000   0.000   1.000
+     0   1.000   1.000   0.000   0.000   1.000
+     2   1.000   1.000   0.000   0.000   1.000
+     4   1.000   1.000   0.000   0.000   1.000
+     6   1.000   1.000   0.000   0.000   1.000
+     8   1.000   1.000   0.000   0.000   1.000
+    10   1.000   1.000   0.000   0.000   1.000
+    12   1.000   1.000   0.000   0.000   1.000
+    14   1.000   1.000   0.000   0.000   1.000
+
+operating-point sweep (grounding support threshold):
+   tau    prec  recall     FPR     FNR      F1
+  0.30   1.000   1.000   0.000   0.000   1.000
+  0.40   1.000   1.000   0.000   0.000   1.000
+  0.50   1.000   1.000   0.000   0.000   1.000
+  0.55   1.000   1.000   0.000   0.000   1.000
+  0.62   0.882   1.000   0.133   0.000   0.938
+  0.70   0.833   1.000   0.200   0.000   0.909
+  0.80   0.789   1.000   0.267   0.000   0.882
+  0.90   0.789   1.000   0.267   0.000   0.882
+
+wrote /home/claude/controlplane/eval/results.json

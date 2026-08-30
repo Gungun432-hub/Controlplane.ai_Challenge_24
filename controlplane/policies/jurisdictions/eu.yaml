@@ -1,0 +1,17 @@
+# Jurisdiction overlay: European Union.
+# Applied on top of a use-case profile. Overlays only ever tighten.
+id: eu
+name: European Union (GDPR + EU AI Act)
+regime: [gdpr, eu_ai_act]
+threshold_delta:            # subtracted from the profile thresholds
+  pass: 6
+  repair: 6
+  escalate: 14
+weight_overrides:
+  pii: 1.3
+  bias: 1.3
+required_evidence: [decision_record, human_reviewer_id, model_version]
+retention_days: 2555        # 7 years
+notes: >
+  EU AI Act Art. 14 expects human oversight of high-risk systems and Art. 12
+  expects automatic record-keeping. Both map onto the trust ledger entry.

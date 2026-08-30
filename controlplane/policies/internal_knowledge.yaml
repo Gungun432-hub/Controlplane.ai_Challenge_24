@@ -1,0 +1,37 @@
+# Policy profile: internal employee knowledge copilot.
+# Internal audience, human always in the loop, higher risk tolerance,
+# and a generous latency budget because nobody is waiting on a customer.
+id: internal_knowledge
+name: Internal Knowledge Assistant
+version: 2
+description: >
+  Employee-facing copilot over internal documentation. The reader is an
+  employee who can sanity-check the answer, so tolerance for uncertainty is
+  higher, but data-leak risk across entitlement boundaries is not.
+
+audience: internal
+latency_budget_ms: 2500
+default_action_class: draft
+
+thresholds:
+  pass: 38          # deliberately looser than customer_support
+  repair: 58
+  escalate: 78
+
+weights:
+  grounding: 0.8
+  uncertainty: 0.6
+  pii: 1.0          # entitlement leakage still matters internally
+  bias: 0.5
+  cost: 0.9         # internal copilots are where compute quietly bleeds
+
+inline_detectors: [pii, grounding]
+async_detectors: [uncertainty, cost, bias]
+
+review_queue: knowledge-owners
+llm_judge:
+  enabled: true
+  min_risk_price: 60
+  max_calls_per_1k: 40
+
+repair_actions: [redact_pii, attach_citation]

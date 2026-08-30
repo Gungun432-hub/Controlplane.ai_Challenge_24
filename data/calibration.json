@@ -1,0 +1,11 @@
+{
+  "offsets": {
+    "customer_support": -1.5
+  },
+  "counts": {
+    "customer_support": {
+      "confirmed": 1,
+      "false_alarm": 0
+    }
+  }
+}

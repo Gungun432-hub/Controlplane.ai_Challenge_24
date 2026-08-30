@@ -1,0 +1,15 @@
+# Jurisdiction overlay: India.
+id: in
+name: India (DPDP Act 2023 + RBI model-risk expectations)
+regime: [dpdp_2023, rbi_mrm]
+threshold_delta:
+  pass: 3
+  repair: 4
+  escalate: 4
+weight_overrides:
+  pii: 1.0
+required_evidence: [decision_record, model_version]
+retention_days: 1825
+notes: >
+  DPDP obligations centre on purpose limitation and breach notification, so the
+  PII weighting rises but the bias overlay is lighter than the EU profile.

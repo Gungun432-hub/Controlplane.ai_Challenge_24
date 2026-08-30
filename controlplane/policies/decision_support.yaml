@@ -1,0 +1,41 @@
+# Policy profile: decision-support tool embedded in a regulated workflow.
+# The output drives or executes a consequential decision. Lowest risk
+# tolerance in the fleet; latency is the cheapest thing we can spend.
+id: decision_support
+name: Decision Support (Regulated)
+version: 5
+description: >
+  Credit, claims and treasury workflows where the model's output decides or
+  executes. Bias and irreversibility dominate. We deliberately accept high
+  added latency here because the cost of being wrong is orders of magnitude
+  larger than the cost of waiting.
+
+audience: external
+latency_budget_ms: 6000
+default_action_class: decide
+
+thresholds:
+  pass: 12          # much stricter
+  repair: 28
+  escalate: 44
+
+weights:
+  grounding: 1.0
+  uncertainty: 1.0
+  pii: 1.0
+  bias: 1.4         # bias is weighted above every other signal here
+  cost: 0.3
+
+inline_detectors: [pii, grounding, uncertainty, bias]
+async_detectors: [cost]
+
+review_queue: credit-risk-officers
+llm_judge:
+  enabled: true
+  min_risk_price: 30
+  max_calls_per_1k: 250
+
+repair_actions: [redact_pii, attach_citation, soften_overclaim]
+
+# Actions that can never be auto-executed regardless of price.
+hard_gate_action_classes: [execute]

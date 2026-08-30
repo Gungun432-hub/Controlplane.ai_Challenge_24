@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+data/ledger.jsonl
+data/telemetry.jsonl
+.DS_Store
+*.egg-info/
