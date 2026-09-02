@@ -26,8 +26,8 @@ weights:
   bias: 1.4         # bias is weighted above every other signal here
   cost: 0.3
 
-inline_detectors: [pii, grounding, uncertainty, bias]
-async_detectors: [cost]
+inline_detectors: [pii, grounding , bias]
+async_detectors: [uncertainty ,cost]
 
 review_queue: credit-risk-officers
 llm_judge:
