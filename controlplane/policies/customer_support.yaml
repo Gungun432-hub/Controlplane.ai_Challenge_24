@@ -28,8 +28,8 @@ weights:
 
 # Detectors permitted to run inline for this profile. Anything not listed
 # runs asynchronously after release, so it cannot spend the latency budget.
-inline_detectors: [pii, grounding, uncertainty]
-async_detectors: [cost, bias]
+inline_detectors: [pii, grounding]
+async_detectors: [uncertainty ,cost, bias]
 
 # Escalation routing
 review_queue: cx-supervisors
