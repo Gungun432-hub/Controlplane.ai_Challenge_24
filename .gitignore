@@ -1,0 +1,16 @@
+# secrets — the Gemini key lives here and must never be committed
+.env
+.env.*
+!.env.example
+
+# runtime state
+data/
+*.jsonl
+*.jsonl.*
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+node_modules/

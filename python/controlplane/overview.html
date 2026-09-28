@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ControlPlane — AI portfolio</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0F0F17; --surface:#171722; --surface-2:#1E1E2C; --surface-3:#262636;
+  --line:#2E2E40; --line-firm:#43435A;
+  --ink:#EDEDF5; --ink-2:#A8A8BE; --ink-3:#9494B2;
+  --band:#2E1C55; --band-2:#241544; --brand:#B57BFF; --brand-dim:#8B5CF6;
+  --on-brand:#190D30; --brand-on-band:#B57BFF; --brand-wash:rgba(181,123,255,.14);
+  --pass:#00C48C; --repair:#3B9EFF; --escalate:#FFB020; --block:#FF4757;
+  --pass-wash:rgba(0,196,140,.14); --repair-wash:rgba(59,158,255,.14);
+  --escalate-wash:rgba(255,176,32,.14); --block-wash:rgba(255,71,87,.14);
+  --unknown:#7C7C96; --unknown-wash:rgba(124,124,150,.16);
+  --display:'Space Grotesk','Segoe UI',system-ui,sans-serif;
+  --ui:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+:root[data-theme="light"]{
+  --bg:#F6F6FA; --surface:#FFFFFF; --surface-2:#F0F0F6; --surface-3:#E6E6EF;
+  --line:#DCDCE6; --line-firm:#BDBDCE;
+  --ink:#16161F; --ink-2:#55556B; --ink-3:#6B6B84;
+  --brand:#6D28D9; --on-brand:#FFFFFF; --brand-wash:rgba(109,40,217,.10);
+  --pass:#00875A; --repair:#1D6FD0; --escalate:#B26A00; --block:#D62839;
+  --pass-wash:rgba(0,135,90,.12); --repair-wash:rgba(29,111,208,.12);
+  --escalate-wash:rgba(178,106,0,.12); --block-wash:rgba(214,40,57,.12);
+  --unknown:#6B6B84; --unknown-wash:rgba(107,107,132,.12);
+}
+/* live traffic from the user page — the seam that makes this one system */
+.cap{margin-top:10px;font:500 11px var(--ui);color:var(--ink-2);
+  border-top:1px solid var(--line);padding-top:9px}
+.cap span{display:block;font:400 10.5px var(--mono);color:var(--ink-3);margin-top:2px}
+.cap b{display:inline-block;margin-top:5px;font:700 9.5px var(--ui);letter-spacing:.7px;
+  color:var(--block);background:var(--block-wash);border-radius:4px;padding:2px 7px}
+.cap.warning{color:var(--escalate)}
+.cap.exhausted{color:var(--block)}
+
+.live{border:1px solid var(--line-firm);border-radius:14px;background:var(--surface);
+  margin:0 0 22px;overflow:hidden}
+.live.hot{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-wash)}
+.live .lh{display:flex;align-items:center;gap:10px;padding:13px 18px;
+  border-bottom:1px solid var(--line);flex-wrap:wrap}
+.live .lh h3{font:700 13px var(--ui);letter-spacing:.4px;text-transform:uppercase;
+  color:var(--ink-2)}
+.live .lh .dot{width:8px;height:8px;border-radius:50%;background:var(--unknown);flex:none}
+.live.hot .lh .dot{background:var(--pass);animation:beat 1.6s ease-in-out infinite}
+@keyframes beat{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1.25)}}
+.live .lh .ask{margin-left:auto;font:500 11.5px var(--ui);color:var(--brand);
+  text-decoration:none;border:1px solid var(--brand);border-radius:999px;padding:4px 11px}
+.live .nums{display:flex;flex-wrap:wrap;gap:0;border-bottom:1px solid var(--line)}
+.live .nums div{flex:1 1 128px;padding:12px 18px;border-right:1px solid var(--line)}
+.live .nums div:last-child{border-right:0}
+.live .nums k{display:block;font:500 10px var(--ui);letter-spacing:.8px;
+  text-transform:uppercase;color:var(--ink-3);margin-bottom:3px}
+.live .nums v{font:700 19px/1.1 var(--display);color:var(--ink);display:block}
+.live .nums v small{font:400 11px var(--ui);color:var(--ink-3)}
+.live table{width:100%;border-collapse:collapse;font-size:12.5px}
+.live td{padding:8px 18px;border-bottom:1px solid var(--line);color:var(--ink-2);
+  vertical-align:top}
+.live tr:last-child td{border-bottom:0}
+.live td.q{color:var(--ink)}
+.live td.r{text-align:right;white-space:nowrap;font:400 11.5px/1.75 var(--mono);
+  color:var(--ink-3);padding-left:14px}
+.live td.r a{display:inline-block;color:var(--brand);text-decoration:none;
+  border-bottom:1px dotted var(--brand);margin-top:2px}
+.live .rt{display:inline-block;font:700 9.5px var(--ui);letter-spacing:.7px;
+  text-transform:uppercase;border-radius:4px;padding:2px 7px;margin-right:8px}
+.rt.pass{background:var(--pass-wash);color:var(--pass)}
+.rt.repair{background:var(--repair-wash);color:var(--repair)}
+.rt.escalate{background:var(--escalate-wash);color:var(--escalate)}
+.rt.block{background:var(--block-wash);color:var(--block)}
+.live .empty{padding:16px 18px;color:var(--ink-3);font-size:13px}
+.live .note{padding:11px 18px;border-top:1px solid var(--line);font-size:12px;
+  color:var(--ink-3);background:var(--surface-2)}
+.live .note b{color:var(--ink-2);font-weight:500}
+.jd{display:inline-block;font:500 9.5px var(--mono);border:1px solid var(--line-firm);
+  border-radius:4px;padding:1px 5px;margin-left:7px;color:var(--ink-3)}
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:400 14px/1.55 var(--ui);min-height:100vh;
+  overflow-x:hidden}
+
+/* masthead */
+.band{background:linear-gradient(97deg,var(--band),var(--band-2));
+  display:flex;align-items:center;gap:10px 14px;padding:11px 26px;flex-wrap:wrap;
+  border-bottom:1px solid var(--line)}
+.mark{font:700 19px/1 var(--display);color:#F2ECFF;letter-spacing:-.2px}
+.mark i{color:var(--brand-on-band);font-style:normal}
+.tagline{font-size:11.5px;color:#C9BEE4;border-left:1px solid rgba(255,255,255,.18);padding-left:14px}
+.band .right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font:500 11px var(--ui);border:1px solid rgba(255,255,255,.22);border-radius:999px;
+  padding:4px 11px;color:#E3D9FA;background:rgba(0,0,0,.18);white-space:nowrap}
+.tgl{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.22);color:#E3D9FA;
+  font:500 11px var(--ui);padding:5px 11px;border-radius:999px;cursor:pointer;
+  text-decoration:none;display:inline-block;line-height:1.45}
+.tgl:hover{background:rgba(0,0,0,.45)}
+.tgl.on{background:var(--brand);color:var(--on-brand);border-color:transparent;font-weight:600}
+
+main{max-width:1280px;margin:0 auto;padding:40px 26px 70px}
+@media(max-width:560px){
+  main{padding:26px 16px 50px}
+  .band{padding:10px 16px}
+  .tagline{display:none}
+  .hero h1{font-size:24px}
+  .tile .v{font-size:28px}
+  .sec{flex-wrap:wrap} .sec .r{margin-left:0;flex-basis:100%}
+}
+
+/* the sentence, before any number */
+.hero{margin-bottom:34px}
+.hero h1{font:700 30px/1.25 var(--display);letter-spacing:-.6px;max-width:22ch}
+.hero h1 em{font-style:normal;color:var(--brand)}
+.hero p{color:var(--ink-2);font-size:14.5px;margin-top:10px;max-width:62ch}
+
+/* three numbers, not fourteen */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:34px}
+@media(max-width:900px){.tiles{grid-template-columns:1fr}}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:20px 22px}
+.tile .l{font-size:10px;letter-spacing:1.1px;text-transform:uppercase;color:var(--ink-3)}
+.tile .v{font:700 34px/1.15 var(--display);margin-top:8px;letter-spacing:-.8px;
+  display:flex;align-items:baseline;gap:9px}
+.tile .v small{font:400 13px var(--ui);color:var(--ink-3);letter-spacing:0}
+.tile .n{font-size:12px;color:var(--ink-3);margin-top:7px}
+.tile.warn{border-color:var(--escalate)} .tile.warn .v{color:var(--escalate)}
+.tile.bad{border-color:var(--block)} .tile.bad .v{color:var(--block)}
+
+.sec{display:flex;align-items:baseline;gap:12px;margin:0 0 15px}
+.sec h2{font:700 15px var(--display);letter-spacing:.2px}
+.sec .c{font-size:12px;color:var(--ink-3)}
+.sec .r{margin-left:auto;font-size:12px;color:var(--ink-3)}
+
+/* the portfolio */
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+@media(max-width:1080px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  padding:20px 21px 17px;text-decoration:none;color:inherit;display:block;
+  border-top:3px solid var(--line-firm);transition:transform .12s, border-color .12s, box-shadow .12s}
+.card:hover{transform:translateY(-2px);box-shadow:0 8px 26px rgba(0,0,0,.28);border-color:var(--line-firm)}
+.card.governed{border-top-color:var(--pass)}
+.card.breaching{border-top-color:var(--block)}
+.card.unknown{border-top-color:var(--unknown);border-style:dashed;border-top-style:solid;
+  background:linear-gradient(var(--unknown-wash),var(--unknown-wash)) var(--surface)}
+
+.card .top{display:flex;align-items:flex-start;gap:10px;margin-bottom:3px}
+.card h3{font:700 17px/1.25 var(--display);letter-spacing:-.25px;flex:1;min-width:0}
+.stat{font:600 9.5px var(--ui);letter-spacing:.9px;text-transform:uppercase;
+  border-radius:999px;padding:4px 10px;white-space:nowrap;flex:none;margin-top:1px}
+.stat.governed{background:var(--pass-wash);color:var(--pass)}
+.stat.breaching{background:var(--block-wash);color:var(--block)}
+.stat.unknown{background:var(--unknown-wash);color:var(--unknown)}
+.card .who{font-size:12px;color:var(--ink-3);margin-bottom:17px}
+
+.big{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.big b{font:700 27px/1 var(--display);letter-spacing:-.6px}
+.big span{font-size:12px;color:var(--ink-3)}
+.bar{height:5px;border-radius:99px;background:var(--surface-3);overflow:hidden;margin:9px 0 4px}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--pass);transition:width .4s}
+.bar i.w{background:var(--escalate)} .bar i.b{background:var(--block)}
+.sub{display:flex;justify-content:space-between;gap:10px;font-size:11px;color:var(--ink-3);
+  flex-wrap:wrap}
+
+.micro{display:flex;gap:7px;flex-wrap:wrap;margin:15px 0 11px}
+.micro span{font:500 10.5px var(--mono);border:1px solid var(--line);border-radius:999px;
+  padding:3px 9px;color:var(--ink-2)}
+.micro span.on{border-color:var(--block);color:var(--block)}
+.why{font-size:12px;color:var(--ink-3);font-style:italic;
+  border-top:1px solid var(--line);padding-top:11px}
+.card.unknown .why{color:var(--unknown);font-style:normal;font-weight:500}
+
+/* what to do next */
+.go{background:var(--surface);border:1px dashed var(--line-firm);border-radius:14px;padding:20px 21px;
+  text-decoration:none;color:inherit;display:flex;flex-direction:column;justify-content:center;
+  transition:border-color .12s,transform .12s}
+.go.wide{margin-top:18px;display:block}
+.go .gk{font:600 9.5px var(--ui);letter-spacing:1px;text-transform:uppercase;color:var(--ink-3);
+  margin-bottom:5px}
+.go:hover{border-color:var(--brand);transform:translateY(-2px)}
+.go b{font:700 15px var(--display);display:block;margin-bottom:5px}
+.go b i{font-style:normal;color:var(--brand);margin-left:5px}
+.go p{font-size:12.5px;color:var(--ink-3)}
+
+.foot{margin-top:30px;font-size:11.5px;color:var(--ink-3);display:flex;gap:16px;flex-wrap:wrap;
+  border-top:1px solid var(--line);padding-top:16px}
+.foot b{color:var(--ink-2);font-weight:500}
+.synth{border:1px solid var(--line);border-left:3px solid var(--escalate);background:var(--surface);
+  color:var(--ink-3);border-radius:8px;padding:10px 14px;font-size:12px;margin-top:30px;display:none}
+.synth b{color:var(--escalate);font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="band">
+  <div class="mark">Control<i>Plane</i></div>
+  <div class="tagline">Consequence-aware control plane for enterprise AI</div>
+  <div class="right">
+    <span class="pill" id="prov">provider —</span>
+    <a class="tgl on" href="/">Portfolio</a>
+    <a class="tgl" href="/console">Mission Control</a>
+    <a class="tgl" href="/review">Review</a>
+    <a class="tgl" href="/advisor">Advisories</a>
+    <a class="tgl" href="/developer">Developer</a>
+    <a class="tgl" href="/chat" title="The employee-facing assistant these decisions are about">User page ↗</a>
+    <button class="tgl" id="theme">Light</button>
+  </div>
+</div>
+
+<main>
+  <div class="hero">
+    <h1 id="headline">Loading the portfolio…</h1>
+    <p id="subline"></p>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="live" id="live"></div>
+
+  <div class="sec">
+    <h2>AI portfolio</h2>
+    <span class="c" id="count"></span>
+    <span class="r">updates live · click a system to open it in Mission Control</span>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <a class="go wide" href="/advisor">
+    <b>Advisories &amp; owner briefings <i>→</i></b>
+    <p>What each department owner should do about their system — the budget forecast,
+       the specific fix, and the email that tells them before the money is gone.</p>
+  </a>
+  <a class="go wide" href="/developer">
+    <b>Developer view <i>→</i></b>
+    <p>For the teams whose systems are governed: the policy in force, the arithmetic
+       behind a score, and how to integrate in one line.</p>
+  </a>
+
+  <div class="synth" id="synth"></div>
+  <div class="foot" id="foot"></div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money = n => '₹' + Math.round(n).toLocaleString('en-IN');
+
+function applyTheme(t){ document.documentElement.setAttribute('data-theme', t);
+  $('#theme').textContent = t === 'dark' ? 'Light' : 'Dark';
+  try{ localStorage.setItem('cp-theme', t); }catch(e){} }
+let th = 'dark'; try{ th = localStorage.getItem('cp-theme') || 'dark'; }catch(e){}
+applyTheme(th);
+$('#theme').onclick = () => applyTheme(
+  document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+
+const WORD = {1:'One', 2:'Two', 3:'Three', 4:'Four', 5:'Five', 6:'Six', 7:'Seven'};
+const barClass = p => p >= 100 ? 'b' : p >= 70 ? 'w' : '';
+
+/* The sentence a person reads before they read a number. It is generated from
+   the same projection the cards use, so it can never flatter the fleet. */
+function headline(f){
+  const s = f.systems, n = s.length;
+  const unknown  = s.filter(x => x.status === 'unknown');
+  const breach   = s.filter(x => x.status === 'breaching');
+  const depts    = new Set(s.map(x => x.department)).size;
+
+  let h, sub;
+  if (unknown.length){
+    h = `${WORD[n] || n} AI systems. <em>${unknown.length === 1 ? 'One has' :
+         unknown.length + ' have'} stopped reporting.</em>`;
+    sub = `${unknown.map(x => x.name).join(', ')} ${unknown.length === 1 ? 'has' : 'have'} sent `
+        + `no traffic for long enough that we will not call ${unknown.length === 1 ? 'it' : 'them'} `
+        + `healthy. A dashboard that turns silence green is the failure this exists to prevent.`;
+  } else if (breach.length){
+    h = `${WORD[n] || n} AI systems. <em>${breach.length} outside ${breach.length === 1 ?
+         'its' : 'their'} limits.</em>`;
+    sub = `${breach.map(x => x.name).join(', ')} — ${breach.map(x => x.statusReason).join('; ')}.`;
+  } else {
+    h = `${WORD[n] || n} AI systems. <em>All within limits.</em>`;
+    sub = `Every system is inside its spend and reviewer budgets, and governance is complete `
+        + `on the consequence-weighted measure.`;
+  }
+  $('#headline').innerHTML = h;
+  $('#subline').textContent = sub;
+  $('#count').textContent = `${n} systems · ${depts} departments · ${f.decisions} decisions governed`;
+}
+
+function tiles(f){
+  const s = f.systems;
+  const ok = s.filter(x => x.status === 'governed').length;
+  const budget = s.reduce((a, x) => a + x.budgetInr, 0);
+  const pct = budget ? (f.spendInr / budget * 100) : 0;
+  const blocked = f.routes ? (f.routes.block || 0) : 0;
+  const health = f.governanceHealth || 'ok';
+
+  $('#tiles').innerHTML = `
+    <div class="tile ${ok < s.length ? 'warn' : ''}">
+      <div class="l">Systems within limits</div>
+      <div class="v">${ok}<small>of ${s.length} are fine</small></div>
+      <div class="n">${s.length - ok === 0 ? 'Nothing needs attention'
+        : (s.length - ok) + ' need' + (s.length - ok === 1 ? 's' : '') + ' attention: '
+          + s.filter(x => x.status !== 'governed').map(x => x.name).join(', ')}</div>
+    </div>
+    <div class="tile ${pct >= 100 ? 'bad' : pct >= 85 ? 'warn' : ''}">
+      <div class="l">Monthly spend against budget</div>
+      <div class="v">${money(f.spendInr)}<small>of ${money(budget)}</small></div>
+      <div class="n">${pct.toFixed(0)}% consumed across the fleet</div>
+    </div>
+    <div class="tile ${health !== 'ok' ? 'warn' : ''}">
+      <div class="l">Harm-weighted exposure</div>
+      <div class="v">${Math.round(f.exposure).toLocaleString('en-IN')}</div>
+      <div class="n">${blocked} action${blocked === 1 ? '' : 's'} blocked ·
+        governance ${esc(health)} · completeness ${esc(f.completenessLabel)}</div>
+    </div>`;
+}
+
+function card(s){
+  const bp = Math.min(100, s.budgetUsedPct), rp = Math.min(100, s.reviewUsedPct);
+  const worst = Math.max(s.budgetUsedPct, s.reviewUsedPct);
+  const silent = s.status === 'unknown' && s.silentForS != null
+    ? `no signal for ${Math.round(s.silentForS / 60)} min` : null;
+  return `<a class="card ${s.status}" href="/console#${esc(s.systemId)}">
+    <div class="top">
+      <h3>${esc(s.name)}</h3>
+      <span class="stat ${s.status}">${s.status === 'unknown' ? 'no signal' : esc(s.status)}</span>
+    </div>
+    <div class="who">${esc(s.owner)} · ${esc(s.department)}</div>
+
+    <div class="big"><b>${money(s.spendInr)}</b><span>of ${money(s.budgetInr)} this month</span></div>
+    <div class="bar"><i class="${barClass(s.budgetUsedPct)}" style="width:${bp}%"></i></div>
+    <div class="sub"><span>spend ${s.budgetUsedPct}%</span>
+      <span>reviewer time ${s.reviewUsedPct}%</span></div>
+    <div class="bar"><i class="${barClass(s.reviewUsedPct)}" style="width:${rp}%"></i></div>
+
+    <div class="micro">
+      <span>${s.decisions} decisions</span>
+      <span>exposure ${s.exposurePer100}/100</span>
+      ${s.activeControls.map(c => `<span class="on">${esc(c.kind)}</span>`).join('')}
+    </div>
+    <div class="cap ${esc((s.capacity || {}).state || 'ok')}">
+      reviewer capacity ${esc((s.capacity || {}).usedPct ?? 0)}%
+      <span>${esc((s.capacity || {}).usedMinutes ?? 0)} of ${
+        esc((s.capacity || {}).budgetMinutes ?? 0)} min · rolling 7 days · ${
+        (s.capacity || {}).enforced ? 'hard cap' : 'advisory'}</span>
+      ${(s.capacity || {}).exhausted
+        ? '<b>NOT ACCEPTING QUESTIONS</b>' : ''}</div>
+    <div class="why">${esc(silent || s.statusReason)}${
+      s.userTurns ? ` · <b style="color:var(--brand)">${esc(s.userTurns)} from the user
+        page</b>, ${esc(s.userBlocked)} blocked, +${esc(s.userExposure)} exposure` : ''}</div>
+  </a>`;
+}
+
+/* The user page and this page are not two products in a folder. Every question
+   an employee types is priced by exactly the code that priced the seeded history
+   — same detectors, same profile, same ledger — so this band can attribute part
+   of the portfolio's own exposure and cost to live human traffic and link
+   straight to the receipt.
+
+   It reports exposure, oversight cost and route mix rather than a moving budget
+   bar, because one question costs a fraction of a rupee in tokens against a
+   monthly budget in the tens of thousands and a bar that visibly moved would be
+   a lie. What does move on a single question is the route mix and the cost of a
+   human being pulled in — and one blocked question is enough to change a
+   system's status, which is the sensitivity that matters. */
+let lastLiveTurns = -1;
+
+function liveBand(t){
+  const el = $('#live');
+  const hot = t.turns > 0;
+  el.classList.toggle('hot', hot);
+  const fresh = t.turns !== lastLiveTurns && lastLiveTurns >= 0 && t.turns > lastLiveTurns;
+  lastLiveTurns = t.turns;
+
+  const rows = (t.recent || []).map(r => `
+    <tr>
+      <td class="q"><span class="rt ${esc(r.route)}">${esc(r.route)}</span>
+        ${esc(r.question || '(question not recorded)')}
+        ${r.judged ? '<span class="jd">judged by a second model</span>' : ''}
+        ${r.scope === 'uncovered' ? '<span class="jd">nothing we hold covers this</span>' : ''}
+        <div style="color:var(--ink-3);margin-top:3px">${esc(r.name)} · ${esc(r.department)}${
+          r.findings.length ? ' · ' + r.findings.map(esc).join(', ') : ''}</div></td>
+      <td class="r">price ${esc(r.price)}<br><a href="/console?focus=${esc(r.requestId)}"
+        >receipt →</a></td>
+    </tr>`).join('');
+
+  el.innerHTML = `
+    <div class="lh"><span class="dot"></span>
+      <h3>Live traffic from the user page</h3>
+      <span style="color:var(--ink-3);font-size:12px">last ${esc(t.windowMinutes)} minutes
+        · ${esc(t.turnsAllTime)} questions all time</span>
+      <a class="ask" href="/chat" target="_blank">Ask a question ↗</a></div>
+    <div class="nums">
+      <div><k>questions</k><v>${esc(t.turns)}</v></div>
+      <div><k>exposure added</k><v>+${esc(t.exposure)}</v></div>
+      <div><k>oversight cost</k><v>₹${esc(t.oversightCostInr)}
+        <small>${esc(t.reviewMinutes)} reviewer min</small></v></div>
+      <div><k>model spend</k><v>₹${esc(t.modelSpendInr)}</v></div>
+      <div><k>at 1,000 questions</k><v>₹${esc(Math.round(t.perThousandTurnsInr).toLocaleString('en-IN'))}</v></div>
+      <div><k>second opinions</k><v>${esc(t.judged)}
+        <small>${Math.round((t.judgeShare || 0) * 100)}% of turns</small></v></div>
+      <div><k>held for a human</k><v>${esc(t.heldNow)}
+        <small>${esc(t.redirected)} redirected, 0 tokens</small></v></div>
+    </div>
+    ${rows ? `<table>${rows}</table>` :
+      `<div class="empty">Nothing yet. Open the <a href="/chat" style="color:var(--brand)">user
+       page</a> and ask something — it lands here, in the cards below, and in the
+       ledger, within four seconds.</div>`}
+    <div class="note">Every one of these went through the same gate as the seeded
+      history: <b>ingress check before a token is spent</b>, then subject scope,
+      then the detectors, then routing. ${
+      Object.entries(t.routes || {}).map(([k, v]) => `<b>${esc(v)} ${esc(k)}</b>`).join(' · ')
+      || 'No routes yet.'}</div>`;
+  if (fresh) el.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+}
+
+async function load(){
+  let f;
+  try{ f = await fetch('/api/fleet').then(r => r.json()); }
+  catch(e){ $('#headline').textContent = 'Cannot reach the control plane.'; return; }
+
+  headline(f); tiles(f);
+  if (f.liveTraffic) liveBand(f.liveTraffic);
+  // Grey systems first: the thing you must not miss should not be the thing you
+  // have to hunt for.
+  const rank = {unknown: 0, breaching: 1, governed: 2};
+  $('#grid').innerHTML = [...f.systems]
+    .sort((a, b) => (rank[a.status] ?? 9) - (rank[b.status] ?? 9) || b.exposure - a.exposure)
+    .map(card).join('')
+    // sits in the grid so five systems do not leave a hole in a three-up layout
+    + `<a class="go" href="/console">
+         <div class="gk">Go to</div>
+         <b>Mission Control <i>→</i></b>
+         <p>Not a system — the console. The live decision stream, every receipt,
+            the controls and the scenario bench.</p>
+       </a>`;
+
+  $('#foot').innerHTML = [
+    `<span>decision p95 <b>${f.decisionLatencyP95} ms</b></span>`,
+    `<span>verification p50 <b>${f.verificationLatencyP50} ms</b></span>`,
+    `<span>pending verification <b>${f.verificationBacklog}</b></span>`,
+    `<span>reviewer minutes <b>${Math.round(f.reviewMinutes)}</b></span>`,
+    `<span>oversight cost <b>${money(f.oversightCostInr || 0)}</b></span>`,
+    `<span>active controls <b>${f.controls.length}</b></span>`,
+    `<span>open recommendations <b>${f.recommendations.length}</b></span>`,
+  ].join('');
+}
+
+async function meta(){
+  try{
+    const h = await fetch('/health').then(r => r.json());
+    $('#prov').textContent = h.live ? h.provider + ' · live' : 'offline provider';
+    $('#prov').title = h.live
+      ? 'Proposals come from a live model. Governance is unchanged either way.'
+      : 'The deterministic reference provider. No network, no key, same gate.';
+    if (h.containsSyntheticSeedData){
+      const el = $('#synth');
+      el.style.display = 'block';
+      el.textContent = 'This instance contains synthetic demonstration history, generated at '
+        + 'start-up so the portfolio has a past. It is labelled here rather than passed off '
+        + 'as real traffic.';
+    }
+  }catch(e){}
+}
+
+load(); meta();
+setInterval(load, 4000);
+</script>
+</body>
+</html>

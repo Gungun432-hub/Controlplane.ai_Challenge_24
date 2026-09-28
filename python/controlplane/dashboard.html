@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ControlPlane — enterprise AI control plane</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0F0F17; --surface:#171722; --surface-2:#1E1E2C; --surface-3:#262636;
+  --line:#2E2E40; --line-firm:#43435A;
+  --ink:#EDEDF5; --ink-2:#A8A8BE; --ink-3:#9494B2;
+  --band:#2E1C55; --band-2:#241544; --brand:#B57BFF; --brand-dim:#8B5CF6;
+  --on-brand:#190D30; --brand-on-band:#B57BFF; --brand-wash:rgba(181,123,255,.14);
+  --pass:#00C48C; --repair:#3B9EFF; --escalate:#FFB020; --block:#FF4757;
+  --pass-wash:rgba(0,196,140,.14); --repair-wash:rgba(59,158,255,.14);
+  --escalate-wash:rgba(255,176,32,.14); --block-wash:rgba(255,71,87,.14);
+  --unknown:#7C7C96; --unknown-wash:rgba(124,124,150,.16);
+  --display:'Space Grotesk','Segoe UI',system-ui,sans-serif;
+  --ui:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+:root[data-theme="light"]{
+  --bg:#F6F6FA; --surface:#FFFFFF; --surface-2:#F0F0F6; --surface-3:#E6E6EF;
+  --line:#DCDCE6; --line-firm:#BDBDCE;
+  --ink:#16161F; --ink-2:#55556B; --ink-3:#6B6B84;
+  --brand:#6D28D9; --on-brand:#FFFFFF; --brand-wash:rgba(109,40,217,.10);
+  --pass:#00875A; --repair:#1D6FD0; --escalate:#B26A00; --block:#D62839;
+  --pass-wash:rgba(0,135,90,.12); --repair-wash:rgba(29,111,208,.12);
+  --escalate-wash:rgba(178,106,0,.12); --block-wash:rgba(214,40,57,.12);
+  --unknown:#6B6B84; --unknown-wash:rgba(107,107,132,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font:400 14px/1.5 var(--ui);
+  display:flex;flex-direction:column;overflow:hidden}
+
+/* masthead */
+.band{background:linear-gradient(97deg,var(--band),var(--band-2));
+  display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--line);flex:none}
+.mark{font:700 19px/1 var(--display);color:#F2ECFF;letter-spacing:-.2px}
+.mark i{color:var(--brand-on-band);font-style:normal}
+.tagline{font-size:11.5px;color:#C9BEE4;border-left:1px solid rgba(255,255,255,.18);padding-left:14px}
+.band .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.pill{font:500 11px var(--ui);border:1px solid rgba(255,255,255,.22);border-radius:999px;
+  padding:4px 11px;color:#E3D9FA;background:rgba(0,0,0,.18);white-space:nowrap}
+.pill b{color:var(--pass);font-weight:600}
+.pill.live b{color:#FFD98A}
+.tgl{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.22);color:#E3D9FA;
+  font:500 11px var(--ui);padding:5px 11px;border-radius:999px;cursor:pointer;
+  text-decoration:none;display:inline-block;line-height:1.45}
+.tgl:hover{background:rgba(0,0,0,.45)}
+.tgl.on{background:var(--brand);color:var(--on-brand);border-color:transparent;font-weight:600}
+
+/* SLO strip */
+.slos{display:flex;gap:1px;background:var(--line);flex:none}
+.slo{flex:1;background:var(--surface);padding:9px 16px}
+.slo .l{font-size:10px;letter-spacing:.9px;text-transform:uppercase;color:var(--ink-3)}
+.slo .v{font:700 20px/1.2 var(--display);margin-top:3px;display:flex;align-items:baseline;gap:7px}
+.slo .v small{font:400 11px var(--ui);color:var(--ink-3)}
+.slo.warn .v{color:var(--escalate)} .slo.bad .v{color:var(--block)}
+
+main{flex:1;display:grid;grid-template-columns:325px minmax(0,1fr) 370px;gap:1px;
+  background:var(--line);min-height:0}
+section{background:var(--bg);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.hd{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line);flex:none}
+.hd h2{font:600 10.5px var(--ui);letter-spacing:1.1px;text-transform:uppercase;color:var(--ink-3)}
+.hd .n{margin-left:auto;font:500 10.5px var(--mono);color:var(--ink-3)}
+.body{overflow:auto;padding:10px 12px;display:flex;flex-direction:column;gap:9px;min-height:0}
+
+/* fleet cards */
+.sys{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--unknown);
+  border-radius:9px;padding:10px 12px;cursor:pointer;transition:border-color .15s,transform .1s}
+.sys:hover{border-color:var(--line-firm)}
+.sys.governed{border-left-color:var(--pass)} .sys.breaching{border-left-color:var(--block)}
+.sys.unknown{border-left-color:var(--unknown);opacity:.82}
+.sys.sel{border-color:var(--brand);background:var(--brand-wash)}
+.sys .top{display:flex;align-items:center;gap:7px}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--unknown)}
+.governed .dot{background:var(--pass)} .breaching .dot{background:var(--block)}
+.sys .nm{font:600 13px var(--ui);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sys .st{font:500 9.5px var(--mono);letter-spacing:.5px;text-transform:uppercase;color:var(--ink-3)}
+.sys .own{font-size:10.5px;color:var(--ink-3);margin-top:1px}
+.sys .why{font-size:10.5px;color:var(--ink-2);margin-top:5px;font-style:italic}
+.mtr{margin-top:7px}
+.mtr .lab{display:flex;justify-content:space-between;font:500 9.5px var(--mono);color:var(--ink-3)}
+.bar{height:4px;background:var(--surface-3);border-radius:2px;overflow:hidden;margin-top:2px}
+.bar i{display:block;height:100%;background:var(--pass);transition:width .5s}
+.bar i.w{background:var(--escalate)} .bar i.b{background:var(--block)}
+.chipline{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.mini{font:500 9.5px var(--mono);border:1px solid var(--line);border-radius:4px;padding:2px 6px;color:var(--ink-3)}
+.mini.on{color:var(--block);border-color:var(--block)}
+
+/* stream */
+.rowline{display:grid;grid-template-columns:52px 38px 1fr 76px 62px 44px;gap:8px;align-items:center;
+  padding:6px 9px;border-radius:6px;cursor:pointer;font:500 11.5px var(--mono);
+  border:1px solid transparent;animation:in .3s ease}
+@keyframes in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.rowline:hover{background:var(--surface-2)}
+.rowline.sel{border-color:var(--brand);background:var(--brand-wash)}
+.rowline .t{color:var(--ink-3)}
+/* Where the row came from, always on the row. A console that mixes simulated
+   load with questions people actually typed and does not say which is which is
+   asking for the liveness to be taken on trust. */
+.org{font:600 9px var(--mono);letter-spacing:.5px;text-align:center;border-radius:4px;
+  padding:2px 0;border:1px solid var(--line);color:var(--ink-3);text-transform:uppercase}
+.org.user{border-color:var(--brand);color:var(--brand);background:var(--brand-wash)}
+.org.scenario{border-color:var(--repair);color:var(--repair)}
+.org.seed,.org.ambient{opacity:.55}
+#sim{display:flex;gap:3px;align-items:center;margin-left:8px}
+#sim button{font:500 10px var(--ui);border:1px solid var(--line);background:var(--surface);
+  color:var(--ink-3);border-radius:999px;padding:3px 9px;cursor:pointer}
+#sim button:hover{border-color:var(--line-firm);color:var(--ink-2)}
+#sim button.on{border-color:var(--brand);color:var(--brand);background:var(--brand-wash)}
+#sim .lbl{font:500 10px var(--ui);color:var(--ink-3);margin-right:2px}
+.rowline .s{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rowline .s em{color:var(--block);font-style:normal;font-weight:600}
+.verb{font:600 9.5px var(--mono);letter-spacing:.6px;text-align:center;border-radius:4px;padding:3px 0}
+.verb.pass{background:var(--pass-wash);color:var(--pass)}
+.verb.repair{background:var(--repair-wash);color:var(--repair)}
+.verb.escalate{background:var(--escalate-wash);color:var(--escalate)}
+.verb.block{background:var(--block-wash);color:var(--block)}
+.pr{text-align:right;color:var(--ink-2)}
+.streambody{overflow:auto;padding:8px 12px;display:flex;flex-direction:column;gap:3px;min-height:0}
+
+/* inspector */
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:11.5px;padding:4px 0;
+  border-bottom:1px solid var(--line)}
+.kv span:first-child{color:var(--ink-3)}
+.kv b{font:500 11.5px var(--mono)}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.pair div{background:var(--surface-2);border:1px solid var(--line);border-radius:7px;padding:8px 10px}
+.pair .k{font-size:9.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--ink-3)}
+.pair .v{font:700 15px var(--display);margin-top:3px}
+.pair.mm div:last-child{border-color:var(--block);background:var(--block-wash)}
+.pair.mm div:last-child .v{color:var(--block)}
+.warnbox{background:var(--block-wash);border:1px solid var(--block);border-radius:7px;
+  padding:8px 10px;font-size:11.5px;color:var(--ink);margin:8px 0;line-height:1.45}
+.warnbox b{color:var(--block)}
+.det{display:grid;grid-template-columns:70px 44px 1fr;gap:7px;align-items:start;
+  font-size:11px;padding:5px 0;border-bottom:1px solid var(--line)}
+.det .n{font:500 11px var(--mono)}
+.det .sc{font:500 11px var(--mono);text-align:right}
+.det .ev{color:var(--ink-3);font-size:10.5px;line-height:1.4}
+.det.t .n,.det.t .sc{color:var(--escalate)} .det.f .n,.det.f .sc{color:var(--block)}
+.det.q .n,.det.q .sc{color:var(--ink-3)}
+/* proposed vs executed — the distinction an auditor is actually asking about */
+.pe{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.pe>div{border:1px solid var(--line);border-radius:7px;padding:8px 10px;background:var(--surface-2);min-width:0}
+.pe .k{font-size:9.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--ink-3)}
+.pe .st{font:700 12.5px var(--display);margin-top:3px}
+.pe .tx{font:400 10.5px var(--mono);color:var(--ink-2);margin-top:5px;line-height:1.45;
+  word-break:break-word;max-height:76px;overflow:auto}
+.pe .no{color:var(--ink-3);font-style:italic}
+.pe>div.acted{border-color:var(--escalate);background:var(--escalate-wash)}
+.pe>div.acted .st{color:var(--escalate)}
+.pe>div.stopped{border-color:var(--pass);background:var(--pass-wash)}
+.pe>div.stopped .st{color:var(--pass)}
+.pe>div.held{border-color:var(--repair);background:var(--repair-wash)}
+.pe>div.held .st{color:var(--repair)}
+.clocks{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.clocks div{background:var(--surface-2);border:1px solid var(--line);border-radius:7px;padding:8px 10px;text-align:center}
+.clocks .v{font:700 16px var(--display)} .clocks .k{font-size:9.5px;color:var(--ink-3);letter-spacing:.7px;text-transform:uppercase}
+.act{background:var(--surface-2);border:1px solid var(--line);color:var(--ink);
+  font:500 11.5px var(--ui);padding:6px 11px;border-radius:6px;cursor:pointer}
+.act:hover{border-color:var(--brand);background:var(--brand-wash)}
+.act.hot{border-color:var(--block);color:var(--block)}
+.act.go{background:var(--brand);border-color:var(--brand);color:var(--on-brand);font-weight:600}
+.rec{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--escalate);
+  border-radius:8px;padding:9px 11px}
+.rec .r{font:500 10px var(--mono);color:var(--brand);letter-spacing:.4px}
+.rec .tx{font-size:11.5px;margin-top:4px;line-height:1.45;color:var(--ink)}
+.rec .ev{font:400 10px var(--mono);color:var(--ink-3);margin-top:5px;word-break:break-all}
+.rec .btns{display:flex;gap:6px;margin-top:7px}
+h3.mini-h{font:600 10px var(--ui);letter-spacing:1.1px;text-transform:uppercase;color:var(--ink-3);margin:6px 0 2px}
+
+/* palette + ops */
+.palette{background:var(--surface);border-top:1px solid var(--line);padding:8px 16px;
+  display:flex;gap:7px;align-items:center;flex-wrap:wrap;flex:none}
+.palette .lb{font:600 9.5px var(--mono);letter-spacing:1px;color:var(--ink-3)}
+.inj{background:var(--surface-2);border:1px solid var(--line);color:var(--ink);
+  font:500 11.5px var(--ui);padding:6px 11px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.inj:hover{border-color:var(--brand);background:var(--brand-wash)}
+.inj.star{border-color:var(--brand);color:var(--brand)}
+.ops{background:var(--surface-2);border-top:1px solid var(--line);padding:7px 16px;
+  display:flex;gap:18px;align-items:center;font:500 11px var(--mono);color:var(--ink-2);flex:none;flex-wrap:wrap}
+.ops b{color:var(--ink)}
+.ops .flag{margin-left:auto;font:600 10px var(--mono);letter-spacing:.8px;padding:3px 10px;
+  border-radius:999px;background:var(--pass-wash);color:var(--pass)}
+.ops .flag.deg{background:var(--escalate-wash);color:var(--escalate)}
+.empty{color:var(--ink-3);font-size:11.5px;font-style:italic;padding:8px 2px}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media(max-width:1280px){main{grid-template-columns:280px minmax(0,1fr) 330px}}
+</style>
+</head>
+<body>
+<div class="band">
+  <div class="mark">Control<i>Plane</i></div>
+  <div class="tagline">Consequence-aware control plane for enterprise AI</div>
+  <div class="right">
+    <span class="pill" id="prov">provider —</span>
+    <span class="pill">decisions <b id="ndec">—</b></span>
+    <a class="tgl" href="/" title="The AI portfolio — five systems, owners, budgets, status">Portfolio</a>
+    <a class="tgl on" href="/console">Mission Control</a>
+    <a class="tgl" href="/review" title="Questions stopped before the model, waiting on a human">Review</a>
+    <a class="tgl" href="/advisor" title="Owner briefings: the forecast, the fix, and the email that tells them">Advisories</a>
+    <a class="tgl" href="/developer" title="The policy in force, the arithmetic behind a score, and how to integrate">Developer</a>
+    <button class="tgl" id="operator" title="Every control action is attributed to this operator in the ledger">operator —</button>
+    <a class="tgl" href="/chat" title="The employee-facing assistant these decisions are about">User page ↗</a>
+    <button class="tgl" id="theme" aria-label="Toggle light and dark theme">Light</button>
+  </div>
+</div>
+
+<div class="slos">
+  <div class="slo" id="slo1"><div class="l">Decision SLO · p95 latency</div><div class="v">—</div></div>
+  <div class="slo" id="slo2"><div class="l">Completeness SLO · consequence-weighted</div><div class="v">—</div></div>
+  <div class="slo" id="slo3"><div class="l">Freshness SLO · verification</div><div class="v">—</div></div>
+  <div class="slo" id="slo4"><div class="l">Exposure · harm-weighted volume</div><div class="v">—</div></div>
+</div>
+
+<main>
+  <section>
+    <div class="hd"><h2>AI Portfolio</h2><span class="n" id="fleetn">—</span></div>
+    <div class="body" id="fleet"></div>
+  </section>
+
+  <section>
+    <div class="hd"><h2>Live decision stream</h2>
+      <span class="n" id="streamn">—</span>
+      <div id="sim" title="Simulated background load. Off by default: every row you see is a real decision, and the badge on each says where it came from.">
+        <span class="lbl">simulate load</span>
+        <button data-rate="off">off</button>
+        <button data-rate="slow">slow</button>
+        <button data-rate="surge">surge</button>
+      </div></div>
+    <div class="streambody" id="stream"></div>
+  </section>
+
+  <section>
+    <div class="hd"><h2 id="insph">Inspector</h2><span class="n" id="inspn"></span></div>
+    <div class="body" id="insp"><div class="empty">Click any decision in the stream to see the
+      evidence behind it.</div></div>
+  </section>
+</main>
+
+<div class="palette" id="palette"><span class="lb">INJECT</span></div>
+
+<div class="ops">
+  <span>verification backlog <b id="o1">—</b></span>
+  <span>oldest pending <b id="o2">—</b></span>
+  <span>stale exposure <b id="o3">—</b></span>
+  <span>deferred queue <b id="o4">—</b></span>
+  <span>reviewer minutes <b id="o5">—</b></span>
+  <span>spend <b id="o6">—</b></span>
+  <span class="flag" id="oflag">GOVERNANCE OK</span>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+/* Mutating routes require an authenticated operator. The console asks once and
+   keeps it for the session; a control that anyone can apply is not a control. */
+const DEFAULT_ACTOR = 'Arun Mehta';
+function actor(){
+  let a = null; try{ a = sessionStorage.getItem('cp-actor'); }catch(e){}
+  return a || DEFAULT_ACTOR;
+}
+function setActor(name){
+  const a = (name || '').trim() || DEFAULT_ACTOR;
+  try{ sessionStorage.setItem('cp-actor', a); }catch(e){}
+  const el = $('#operator'); if (el) el.textContent = a;
+  return a;
+}
+function opHeaders(who){
+  return {'content-type':'application/json',
+          'X-ControlPlane-Actor': who || actor(),
+          'X-ControlPlane-Token': (window.CP_TOKEN || 'operator-dev-token')};
+}
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let cursor = 0, selected = null, selSystem = null, fleetCache = [], busy = false;
+
+/* theme, applied before first paint elsewhere and kept in sync here */
+function applyTheme(t){ document.documentElement.setAttribute('data-theme', t);
+  $('#theme').textContent = t === 'dark' ? 'Light' : 'Dark';
+  try{ localStorage.setItem('cp-theme', t); }catch(e){} }
+$('#theme').onclick = () => applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+
+const money = n => '₹' + Math.round(n).toLocaleString('en-IN');
+function barClass(pct){ return pct >= 100 ? 'b' : pct >= 70 ? 'w' : ''; }
+
+/* ------------------------------------------------------------------ fleet --- */
+async function loadFleet(){
+  const f = await fetch('/api/fleet').then(r => r.json());
+  fleetCache = f.systems;
+  $('#prov').textContent = 'provider ' + f.provider.name + (f.provider.live ? ' · live' : ' · offline');
+  $('#prov').className = 'pill' + (f.provider.live ? ' live' : '');
+  $('#ndec').textContent = f.decisions;
+  $('#fleetn').textContent = f.systems.length + ' systems';
+
+  const p95 = f.decisionLatencyP95, cmpl = f.completeness, backlog = f.verificationBacklog;
+  slo('#slo1', p95 + ' <small>ms</small>', p95 > 800 ? 'bad' : p95 > 400 ? 'warn' : '');
+  slo('#slo2', f.completenessLabel === null ? 'n/a' : esc(f.completenessLabel),
+      cmpl === null ? 'warn' : cmpl < .99 ? 'bad' : '');
+  slo('#slo3', f.verificationLatencyP50 + ' <small>ms p50 · ' + backlog + ' pending</small>',
+      backlog > 25 ? 'bad' : backlog > 8 ? 'warn' : '');
+  slo('#slo4', f.exposure + ' <small>· ' + (f.routes.block || 0) + ' blocked</small>', '');
+
+  $('#fleet').innerHTML = f.systems.map(s => {
+    const bp = Math.min(100, s.budgetUsedPct), rp = Math.min(100, s.reviewUsedPct);
+    const cm = s.completeness === null ? '—' : (s.completeness * 100).toFixed(1) + '%';
+    return `<div class="sys ${s.status}${selSystem === s.systemId ? ' sel' : ''}" data-s="${esc(s.systemId)}" tabindex="0">
+      <div class="top"><span class="dot"></span><span class="nm">${esc(s.name)}</span>
+        <span class="st">${s.status === 'unknown' ? 'NO SIGNAL' : s.status}</span></div>
+      <div class="own">${esc(s.owner)} · ${esc(s.department)}</div>
+      <div class="mtr"><div class="lab"><span>money</span><span>${money(s.spendInr)} / ${money(s.budgetInr)}</span></div>
+        <div class="bar"><i class="${barClass(s.budgetUsedPct)}" style="width:${bp}%"></i></div></div>
+      <div class="mtr"><div class="lab"><span>reviewer minutes</span><span>${Math.round(s.reviewMinutes)} / ${Math.round(s.reviewBudgetMinutes)}</span></div>
+        <div class="bar"><i class="${barClass(s.reviewUsedPct)}" style="width:${rp}%"></i></div></div>
+      <div class="chipline">
+        <span class="mini">exposure ${s.exposure}</span>
+        <span class="mini">${s.exposurePer100}/100req</span>
+        <span class="mini">complete ${cm}</span>
+        ${s.activeControls.map(c => `<span class="mini on">${esc(c.kind)}</span>`).join('')}
+      </div>
+      <div class="why">${esc(s.statusReason)}</div></div>`;
+  }).join('');
+  $('#fleet').querySelectorAll('.sys').forEach(el =>
+    el.onclick = () => { selSystem = selSystem === el.dataset.s ? null : el.dataset.s; loadFleet(); });
+
+  $('#o1').textContent = backlog;
+  $('#o2').textContent = f.oldestPendingS + ' s';
+  $('#o3').textContent = f.staleExposure;
+  $('#o4').textContent = f.deferredQueueDepth;
+  $('#o5').textContent = Math.round(f.reviewMinutes);
+  $('#o6').textContent = money(f.spendInr);
+  const flag = $('#oflag');
+  const problems = [];
+  if (f.ledgerErrors && f.ledgerErrors.length) problems.push(f.ledgerErrors.length + ' LEDGER WRITE FAILURES');
+  if (f.droppedVerification) problems.push(f.droppedVerification + ' CHECKS NEVER SCHEDULED');
+  flag.textContent = problems.length ? problems.join(' · ')
+    : (f.governanceHealth === 'ok' ? 'GOVERNANCE OK' : 'GOVERNANCE DEGRADED');
+  flag.className = 'flag' + (f.governanceHealth === 'ok' ? '' : ' deg');
+  if (!selected) renderRecs(f.recommendations, f.controls);
+}
+function slo(id, html, cls){ const el = $(id); el.className = 'slo ' + cls; el.querySelector('.v').innerHTML = html; }
+
+/* ----------------------------------------------------------------- stream --- */
+async function loadStream(){
+  const d = await fetch('/api/stream?after=' + cursor, {headers: opHeaders()}).then(r => r.json());
+  cursor = d.cursor;
+  const box = $('#stream');
+  const near = box.scrollTop < 40;
+  for (const r of d.rows){
+    const el = document.createElement('div');
+    el.className = 'rowline' + (selected === r.requestId ? ' sel' : '');
+    el.dataset.id = r.requestId;
+    const src = {user: ['you', 'Somebody typed this on the user page'],
+                 scenario: ['demo', 'Fired from the scenario bench'],
+                 seed: ['seed', 'Replayed synthetic history, backdated'],
+                 ambient: ['sim', 'Simulated background load']}[r.origin || 'ambient'];
+    el.innerHTML = `<span class="t">${r.at.slice(11, 19)}</span>
+      <span class="org ${esc(r.origin || 'ambient')}" title="${esc(src[1])}">${esc(src[0])}</span>
+      <span class="s">${esc(r.systemId)} · ${esc(r.declared || '?')}${r.mismatch ? '→<em>' + esc(r.effective) + '</em>' : ''}</span>
+      <span class="verb ${r.action}">${r.action.toUpperCase()}</span>
+      <span class="pr">${r.price}</span>
+      <span class="pr">${Math.round(r.decisionLatencyMs)}</span>`;
+    el.onclick = () => openDecision(r.requestId);
+    box.prepend(el);
+  }
+  while (box.children.length > 80) box.lastChild.remove();
+  if (near) box.scrollTop = 0;
+  const live = [...box.children].filter(e => e.querySelector('.org.user')).length;
+  $('#streamn').textContent = `${box.children.length} shown · ${live} typed by a person`
+    + ` · ${SIM_LABEL[simRate]} · price · ms`;
+}
+
+/* -------------------------------------------------------------- inspector --- */
+async function openDecision(id){
+  selected = id;
+  document.querySelectorAll('.rowline').forEach(e => e.classList.toggle('sel', e.dataset.id === id));
+  const d = await fetch('/api/decision/' + id, {headers: opHeaders()}).then(r => r.json());
+  const cap = d.capability || {}, risk = d.risk || {}, gov = d.governance || {};
+  const se = d.decision.sideEffect || {};
+  const seClass = {withheld:'stopped', held_for_human:'held', performed:'acted',
+                   performed_after_repair:'acted', released:'', released_after_repair:''
+                  }[se.state] || '';
+  const seLabel = {withheld:'NOTHING HAPPENED', held_for_human:'HELD FOR A HUMAN',
+                   performed:'THE TOOL ACTED', performed_after_repair:'ACTED, AFTER REPAIR',
+                   released:'ANSWER RELEASED', released_after_repair:'RELEASED, REWRITTEN'
+                  }[se.state] || String(se.state || '—').toUpperCase();
+  const glyph = s => s === 'completed' || s === 'completed_async' ? '✓'
+    : s === 'timed_out' ? '⧗' : s === 'queued_async' ? '·' : s === 'skipped_by_policy' ? '–' : '✗';
+  const klass = s => s === 'timed_out' ? 't' : s === 'failed' ? 'f'
+    : (s === 'queued_async' || s === 'skipped_by_policy') ? 'q' : '';
+
+  $('#insph').textContent = 'Decision ' + id.slice(0, 8);
+  $('#inspn').textContent = d.systemId;
+  $('#insp').innerHTML = `
+    <h3 class="mini-h">Proposed &nbsp;→&nbsp; Executed</h3>
+    <div class="pe">
+      <div>
+        <div class="k">The agent proposed</div>
+        <div class="st">${esc(String(cap.declaredAction || '—').toUpperCase())}${
+          cap.toolId ? ' · ' + esc(cap.toolId) : ''}</div>
+        <div class="tx">${(d.proposal || {}).answer
+          ? esc((d.proposal || {}).answer)
+          : '<span class="no">no proposal was generated</span>'}</div>
+      </div>
+      <div class="${seClass}">
+        <div class="k">What actually happened</div>
+        <div class="st">${seLabel}</div>
+        <div class="tx">${d.decision.releasedText
+          ? esc(d.decision.releasedText)
+          : (d.decision.developerDraft
+              ? `<span class="no">withheld from the person who asked. Returned to the
+                  developer as a draft:</span><br>` + esc(d.decision.developerDraft)
+              : `<span class="no">${esc(se.detail || 'nothing was released')}</span>`)}</div>
+      </div>
+    </div>
+    ${se.changesTheWorld ? `<div class="kv"><span>side effect</span><b>${
+      esc(se.detail || '')}</b></div>` : ''}
+    <div class="pair ${cap.capabilityMismatch ? 'mm' : ''}">
+      <div><div class="k">Declared</div><div class="v">${esc(cap.declaredAction)}</div></div>
+      <div><div class="k">Effective</div><div class="v">${esc(cap.effectiveAction)}</div></div>
+    </div>
+    ${cap.capabilityMismatch ? `<div class="warnbox"><b>CAPABILITY MISMATCH.</b>
+      ${(cap.reasons || []).map(esc).join(' · ')}</div>` : ''}
+    ${cap.denied ? `<div class="warnbox"><b>REFUSED.</b> ${esc(cap.denied)}</div>` : ''}
+    <div class="kv"><span>blast radius</span><b>${cap.blastRadius}</b></div>
+    <div class="kv"><span>risk price</span><b>${risk.price} &nbsp;band ${(risk.band || []).join('–')}</b></div>
+    <div class="kv"><span>route</span><b class="verb ${d.decision.action}" style="padding:2px 8px">${d.decision.action.toUpperCase()}</b></div>
+    <div class="kv"><span>governance</span><b>${esc(gov.status)}</b></div>
+    <div class="kv"><span>policy</span><b>${esc((d.policy || {}).id)}</b></div>
+    <div class="warnbox" style="background:var(--surface-2);border-color:var(--line);color:var(--ink-2)">
+      ${esc(d.decision.reason)}</div>
+    <div class="clocks">
+      <div><div class="k">Decision</div><div class="v">${Math.round(d.decisionLatencyMs)} ms</div></div>
+      <div><div class="k">Verification</div><div class="v">${d.verificationLatencyMs === null
+        ? 'pending' : (d.verificationLatencyMs / 1000).toFixed(1) + ' s'}</div></div>
+    </div>
+    <h3 class="mini-h">Evidence</h3>
+    ${(d.detectors || []).map(x => `<div class="det ${klass(x.status)}">
+      <span class="n">${glyph(x.status)} ${esc(x.detectorId)}</span>
+      <span class="sc">${x.score === null ? '—' : x.score}</span>
+      <span class="ev">${esc((x.evidence || [])[0] || x.status.replace(/_/g, ' '))}</span></div>`).join('')}
+    <h3 class="mini-h">Agent proposal</h3>
+    <div class="kv"><span>tool the agent chose</span><b>${esc((d.proposal || {}).toolId)}</b></div>
+    <div class="kv"><span>provider</span><b>${esc((d.proposal || {}).provider)}</b></div>
+    <div class="kv"><span>cited source ids</span><b>${esc(((d.proposal || {}).sourceIds || []).join(', ') || '—')}</b></div>
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+      <button class="act" id="repro">Reproduce this decision</button>
+      <button class="act" onclick="selected=null;loadFleet()">Back to advisor</button>
+    </div>
+    <div id="reproout"></div>`;
+  $('#repro').onclick = async () => {
+    const r = await fetch('/api/reproduce/' + id, {headers: opHeaders()}).then(x => x.json());
+    const cw = (r.canonical || {}).recorded || {}, cn = (r.canonical || {}).reproduced || {};
+    const line = (k, v) => `${k}&nbsp;<b>${esc(v)}</b>`;
+    $('#reproout').innerHTML = `<div class="warnbox" style="background:${r.identical
+      ? 'var(--pass-wash);border-color:var(--pass)' : 'var(--block-wash);border-color:var(--block)'}">
+      <b>${r.identical ? 'IDENTICAL ✓' : 'DIVERGED ✗'}</b>
+      <span style="font:400 10px var(--mono);color:var(--ink-3)">— ${Object.keys(cw).length}
+      fields compared${r.differences && r.differences.length
+        ? ', differing in ' + r.differences.map(esc).join(', ') : ''}</span><br>
+      <span style="font:400 10.5px var(--mono);line-height:1.7">
+      recorded &nbsp;${esc(String(cw.action || '').toUpperCase())} · price ${esc(cw.price)} ·
+        band ${(cw.band || []).join('–')} · ${esc(cw.governance)} · ${esc(cw.sideEffect)}<br>
+      replayed &nbsp;${esc(String(cn.action || '').toUpperCase())} · price ${esc(cn.price)} ·
+        band ${(cn.band || []).join('–')} · ${esc(cn.governance)} · ${esc(cn.sideEffect)}</span><br>
+      <span style="font:400 10px var(--mono);color:var(--ink-3)">replayed from
+      ${esc(r.replayedFrom)} · capability snapshot ${esc(r.recorded.capabilitySnapshotHash)} ·
+      policy ${esc(r.recorded.policy)}</span></div>`;
+  };
+}
+
+/* ------------------------------------------------------------- advisor --- */
+function renderRecs(recs, controls){
+  const body = $('#insp');
+  $('#insph').textContent = 'Advisor & controls';
+  $('#inspn').textContent = recs.length + ' open';
+  body.innerHTML = (controls.length ? `<h3 class="mini-h">Active controls</h3>` +
+    controls.map(c => `<div class="rec" style="border-left-color:var(--block)">
+      <div class="r">${esc(c.kind.toUpperCase())} · ${esc(c.systemId)} · v${c.version}</div>
+      <div class="tx">${esc(c.reason)}</div>
+      <div class="ev">expires in ${c.expiresInS}s · approved by ${esc(c.approvedBy || 'auto')}</div>
+      <div class="btns"><button class="act hot" onclick="rollback('${esc(c.id)}')">Roll back</button></div>
+    </div>`).join('') : '') +
+    `<h3 class="mini-h">Deterministic recommendations</h3>` +
+    (recs.length ? recs.map(r => `<div class="rec">
+      <div class="r">${esc(r.ruleId)} v${esc(r.ruleVersion)} · ${esc(r.severity)} · ${esc(r.systemId)}</div>
+      <div class="tx">${esc(r.text)}</div>
+      <div class="ev">evidence ${esc(JSON.stringify(r.evidence))} · derivation ${esc(r.derivation)}</div>
+      <div class="btns">
+        <button class="act go" onclick="applyControl('${esc(r.systemId)}','${esc(r.suggestedControl)}','${esc(r.ruleId)}')">
+          Apply ${esc(r.suggestedControl)}</button>
+        ${(r.evidence && r.evidence.budgetInr) ? `<button class="act"
+          onclick="raiseBudget('${esc(r.systemId)}', ${Math.round(r.evidence.budgetInr * 1.5)})">
+          Raise budget to ₹${Math.round(r.evidence.budgetInr * 1.5).toLocaleString('en-IN')}</button>` : ''}
+      </div></div>`).join('')
+      : `<div class="empty">No open recommendations.</div>`);
+}
+
+async function applyControl(systemId, kind, ruleId){
+  const human = kind === 'suspend' || kind === 'quarantine';
+  if (human && !confirm(`"${kind}" is an irreversible fleet action and requires human approval.\n\nApprove for ${systemId}?`)) return;
+  const r = await fetch('/api/control', {method:'POST', headers: opHeaders(),
+    body: JSON.stringify({systemId, kind, ruleId, reason: 'applied from the operations console by ' +
+      (human ? 'a human approver' : 'the supervisor'), approvedBy: human ? 'operator' : null})});
+  if (!r.ok){ alert((await r.json()).detail); return; }
+  selected = null; await loadFleet();
+}
+async function rollback(id){
+  await fetch('/api/control/' + id + '/rollback', {method:'POST', headers: opHeaders()});
+  selected = null; await loadFleet();
+}
+
+/* -------------------------------------------------------------- palette --- */
+async function loadPalette(){
+  const d = await fetch('/api/scenarios').then(r => r.json());
+  const bar = $('#palette');
+  d.scenarios.forEach(s => {
+    const b = document.createElement('button');
+    b.className = 'inj' + (['restart','refund','campaign-fin'].includes(s.id) ? ' star' : '');
+    b.textContent = s.label;
+    b.title = s.systemId + ' — ' + s.note;
+    b.onclick = () => inject(s);
+    bar.appendChild(b);
+  });
+  const surge = document.createElement('button');
+  surge.className = 'inj'; surge.style.marginLeft = 'auto';
+  surge.textContent = 'SURGE ×40'; surge.onclick = doSurge;
+  bar.appendChild(surge);
+  const reset = document.createElement('button');
+  reset.className = 'inj'; reset.textContent = 'Reset demo';
+  reset.onclick = async () => { await fetch('/api/reset', {method:'POST', headers: opHeaders()});
+    cursor = 0; selected = null; $('#stream').innerHTML = ''; await refresh(); };
+  bar.appendChild(reset);
+}
+async function inject(s){
+  if (busy) return; busy = true;
+  try{
+    const r = await fetch('/api/turn', {method:'POST', headers: opHeaders(),
+      body: JSON.stringify({systemId: s.systemId, message: s.message, amountInr: s.amountInr})});
+    const d = await r.json();
+    await loadStream(); await loadFleet();
+    if (d.requestId) openDecision(d.requestId);
+  } finally { busy = false; }
+}
+async function raiseBudget(systemId, to){
+  /* The other half of beat 4. Suspending is one answer to a system at 100% of
+     its budget; funding it properly is the other, and an operations console
+     that only offers the punitive one is not a control plane. */
+  const r = await fetch('/api/budget?systemId=' + encodeURIComponent(systemId) +
+                        '&budgetInr=' + encodeURIComponent(to),
+                        {method:'POST', headers: opHeaders()});
+  if (!r.ok){ console.error('budget change refused', r.status, await r.text()); return; }
+  await loadFleet(); await loadStream();
+}
+async function doSurge(){
+  const d = await fetch('/api/surge?turns=40', {method:'POST', headers: opHeaders()}).then(r => r.json());
+  await loadStream(); await loadFleet();
+}
+
+/* --------------------------------------------------------------- ambient --- */
+/* it-ops-agent is deliberately absent: it has stopped reporting, and a
+   dashboard that quietly turns that green is the failure this product exists
+   to prevent. */
+const AMBIENT = [
+  ['support-copilot','What is the status of my open ticket?'],
+  ['support-copilot','Draft a reply confirming the delivery window.'],
+  ['marketing-copilot','Draft a headline for the festive copy.'],
+  ['finance-decide','Summarise the fund guidance for a retail client.'],
+  ['recruit-screen','Summarise the screening rubric for this role.'],
+];
+/* Simulated load is OFF until somebody turns it on.
+   It used to run every 1.7 seconds from the moment the page opened, and the
+   effect on a reviewer was the opposite of the one intended: a stream that never
+   stops moving reads as a screensaver, and the first question anybody asks is
+   whether any of it is real. The seeded history is honest — it is labelled
+   synthetic everywhere and it is what gives the portfolio its variety — but
+   *continuous* churn buys nothing and costs credibility.
+   So: off by default, three explicit speeds, and every row carries where it came
+   from, so "this one is real" is something you can point at rather than assert. */
+const SIM_RATES = {off: 0, slow: 6000, surge: 1200};
+const SIM_LABEL = {off: 'simulator off', slow: 'simulator slow',
+                   surge: 'simulator surge'};
+let simRate = 'off', simTimer = null;
+
+async function tick(){
+  if (busy || simRate === 'off') return;
+  const [systemId, message] = AMBIENT[Math.floor(Math.random() * AMBIENT.length)];
+  try{ await fetch('/api/turn', {method:'POST', headers: opHeaders('ambient-simulator'),
+        body: JSON.stringify({systemId, message})}); }catch(e){}
+}
+
+function setSim(rate){
+  simRate = SIM_RATES[rate] === undefined ? 'off' : rate;
+  if (simTimer){ clearInterval(simTimer); simTimer = null; }
+  if (SIM_RATES[simRate]) simTimer = setInterval(tick, SIM_RATES[simRate]);
+  document.querySelectorAll('#sim button').forEach(b =>
+    b.classList.toggle('on', b.dataset.rate === simRate));
+  try{ localStorage.setItem('cp-sim', simRate); }catch(e){}
+  loadStream();
+}
+
+async function refresh(){ await loadFleet(); await loadStream(); }
+function boot(){
+  let t = 'dark';
+  try{ t = localStorage.getItem('cp-theme') || 'dark'; }catch(e){}
+  applyTheme(t);
+  /* arriving from a portfolio card: /console#<systemId> opens focused on it */
+  const want = decodeURIComponent((location.hash || '').replace('#', '')).trim();
+  if (want) selSystem = want;
+  /* arriving from the user page or the live-traffic band:
+     /console?focus=<requestId> opens that receipt straight away, so a question
+     somebody typed and the receipt that governed it are one click apart */
+  const focus = new URLSearchParams(location.search).get('focus');
+  if (focus) setTimeout(() => openDecision(focus), 400);
+  setActor(actor());
+  $('#operator').onclick = () => {
+    const n = prompt('Operator name — every control action is signed with this in the ledger:', actor());
+    if (n !== null) setActor(n);
+  };
+  loadPalette(); refresh();
+  setInterval(loadStream, 1200);
+  setInterval(loadFleet, 2600);
+  let rate = 'off';
+  try{ rate = localStorage.getItem('cp-sim') || 'off'; }catch(e){}
+  document.querySelectorAll('#sim button').forEach(b =>
+    b.onclick = () => setSim(b.dataset.rate));
+  setSim(rate);
+}
+boot();
+</script>
+</body>
+</html>

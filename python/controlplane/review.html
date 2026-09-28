@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ControlPlane — question review</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0F0F17; --surface:#171722; --surface-2:#1E1E2C; --surface-3:#262636;
+  --line:#2E2E40; --line-firm:#43435A;
+  --ink:#EDEDF5; --ink-2:#A8A8BE; --ink-3:#9494B2;
+  --band:#2E1C55; --band-2:#241544; --brand:#B57BFF; --on-brand:#190D30;
+  --brand-wash:rgba(181,123,255,.14);
+  --pass:#00C48C; --repair:#3B9EFF; --escalate:#FFB020; --block:#FF4757;
+  --pass-wash:rgba(0,196,140,.14); --repair-wash:rgba(59,158,255,.14);
+  --escalate-wash:rgba(255,176,32,.14); --block-wash:rgba(255,71,87,.14);
+  --unknown:#7C7C96; --unknown-wash:rgba(124,124,150,.16);
+  --display:'Space Grotesk','Segoe UI',system-ui,sans-serif;
+  --ui:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+:root[data-theme="light"]{
+  --bg:#F6F6FA; --surface:#FFFFFF; --surface-2:#F0F0F6; --surface-3:#E6E6EF;
+  --line:#DCDCE6; --line-firm:#BDBDCE;
+  --ink:#16161F; --ink-2:#55556B; --ink-3:#6B6B84;
+  --brand:#6D28D9; --on-brand:#FFFFFF; --brand-wash:rgba(109,40,217,.10);
+  --pass:#00875A; --repair:#1D6FD0; --escalate:#B26A00; --block:#D62839;
+  --pass-wash:rgba(0,135,90,.12); --repair-wash:rgba(29,111,208,.12);
+  --escalate-wash:rgba(178,106,0,.12); --block-wash:rgba(214,40,57,.12);
+  --unknown:#6B6B84; --unknown-wash:rgba(107,107,132,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:400 14px/1.55 var(--ui);min-height:100vh;
+  overflow-x:hidden}
+
+.band{background:linear-gradient(97deg,var(--band),var(--band-2));display:flex;
+  align-items:center;gap:10px 14px;padding:11px 26px;flex-wrap:wrap;
+  border-bottom:1px solid var(--line)}
+.mark{font:700 19px/1 var(--display);color:#F2ECFF;letter-spacing:-.2px}
+.mark i{color:var(--brand);font-style:normal}
+.tagline{font-size:11.5px;color:#C9BEE4;border-left:1px solid rgba(255,255,255,.18);
+  padding-left:14px}
+.band .right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font:500 11px var(--ui);border:1px solid rgba(255,255,255,.22);border-radius:999px;
+  padding:4px 11px;color:#E3D9FA;background:rgba(0,0,0,.18);white-space:nowrap}
+.pill b{color:var(--escalate)}
+.tgl{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.22);color:#E3D9FA;
+  font:500 11px var(--ui);padding:5px 11px;border-radius:999px;cursor:pointer;
+  text-decoration:none;display:inline-block;line-height:1.45}
+.tgl:hover{background:rgba(0,0,0,.45)}
+.tgl.on{background:var(--brand);color:var(--on-brand);border-color:transparent;font-weight:600}
+
+main{max-width:1060px;margin:0 auto;padding:30px 24px 70px}
+h1{font:700 24px/1.25 var(--display);letter-spacing:-.4px;margin-bottom:6px}
+.lede{color:var(--ink-2);font-size:13.5px;max-width:70ch;margin-bottom:22px}
+
+.tabs{display:flex;gap:7px;margin-bottom:18px;flex-wrap:wrap}
+.tab{background:var(--surface);border:1px solid var(--line);color:var(--ink-2);
+  border-radius:999px;padding:7px 15px;font:500 12.5px var(--ui);cursor:pointer}
+.tab.on{background:var(--brand);color:var(--on-brand);border-color:transparent;font-weight:600}
+.tab span{opacity:.75;margin-left:5px}
+
+.q{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--escalate);
+  border-radius:12px;padding:17px 19px;margin-bottom:13px}
+.q.blocked{border-left-color:var(--block);opacity:.72}
+.q.answered,.q.released{border-left-color:var(--pass);opacity:.72}
+.meta{display:flex;gap:9px;align-items:center;flex-wrap:wrap;font-size:11.5px;
+  color:var(--ink-3);margin-bottom:9px}
+.sev{font:700 9.5px var(--ui);letter-spacing:.8px;text-transform:uppercase;
+  border-radius:999px;padding:3px 9px}
+.sev.high{background:var(--block-wash);color:var(--block)}
+.sev.medium{background:var(--escalate-wash);color:var(--escalate)}
+.who{font-weight:600;color:var(--ink-2)}
+.text{font:400 15px/1.6 var(--mono);background:var(--surface-2);border:1px solid var(--line);
+  border-radius:9px;padding:12px 14px;margin-bottom:12px;word-break:break-word}
+.why{margin-bottom:12px}
+.f{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;padding:6px 0;
+  border-bottom:1px dotted var(--line)}
+.f .k{font:600 10px var(--ui);letter-spacing:.7px;text-transform:uppercase;
+  color:var(--block);min-width:118px;padding-top:2px}
+.f .v{color:var(--ink-2);flex:1}
+.f .v code{font:400 11.5px var(--mono);background:var(--surface-2);border:1px solid var(--line);
+  border-radius:4px;padding:1px 5px;color:var(--ink-3)}
+.acts{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:13px}
+.acts input{flex:1;min-width:190px;background:var(--surface-2);border:1px solid var(--line-firm);
+  color:var(--ink);font:400 12.5px var(--ui);border-radius:8px;padding:8px 11px}
+button.a{border:0;border-radius:8px;font:600 12.5px var(--ui);padding:9px 16px;cursor:pointer}
+button.pass{background:var(--pass);color:#06251A}
+button.blk{background:var(--block);color:#2A0508}
+button.a:disabled{opacity:.5;cursor:default}
+.done{font-size:12.5px;color:var(--ink-3);margin-top:11px;padding-top:10px;
+  border-top:1px solid var(--line)}
+.done b{color:var(--ink-2)}
+.empty{border:1px dashed var(--pass);background:var(--pass-wash);color:var(--pass);
+  border-radius:12px;padding:20px;text-align:center;font-size:14px}
+.zero{font:400 11.5px var(--mono);color:var(--pass);margin-top:9px}
+@media(max-width:560px){main{padding:22px 15px 50px}.band{padding:10px 15px}
+  .tagline{display:none} .f{flex-direction:column;gap:2px}}
+</style>
+</head>
+<body>
+
+<div class="band">
+  <div class="mark">Control<i>Plane</i></div>
+  <div class="tagline">Question review</div>
+  <div class="right">
+    <span class="pill">held <b id="nheld">—</b></span>
+    <a class="tgl" href="/">Portfolio</a>
+    <a class="tgl" href="/console">Mission Control</a>
+    <a class="tgl on" href="/review">Review</a>
+    <a class="tgl" href="/advisor">Advisories</a>
+    <a class="tgl" href="/developer">Developer</a>
+    <a class="tgl" href="/chat">User page ↗</a>
+    <button class="tgl" id="theme">Light</button>
+  </div>
+</div>
+
+<main>
+  <h1>Questions stopped before the model</h1>
+  <p class="lede">These were refused at ingress — checked the moment they were typed, before
+    a single token was spent. Nothing here reached a model, and nothing here has an answer.
+    A person decides whether to release it. Passing a question sends it through the normal
+    path and the answer appears in the user's own page; blocking it tells them why.</p>
+
+  <div class="tabs" id="tabs"></div>
+  <div id="list"></div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function applyTheme(t){ document.documentElement.setAttribute('data-theme', t);
+  $('#theme').textContent = t === 'dark' ? 'Light' : 'Dark';
+  try{ localStorage.setItem('cp-theme', t); }catch(e){} }
+let th='dark'; try{ th = localStorage.getItem('cp-theme') || 'dark'; }catch(e){}
+applyTheme(th);
+$('#theme').onclick = () => applyTheme(
+  document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+
+const DEFAULT_ACTOR = 'Arun Mehta';
+function actor(){ try{ return sessionStorage.getItem('cp-actor') || DEFAULT_ACTOR; }
+  catch(e){ return DEFAULT_ACTOR; } }
+function opHeaders(){
+  return {'content-type':'application/json',
+          'X-ControlPlane-Actor': actor(),
+          'X-ControlPlane-Token': (window.CP_TOKEN || 'operator-dev-token')};
+}
+
+const LABEL = {
+  injection: 'Prompt injection',
+  policy_evasion: 'Policy evasion',
+  data_exfiltration: 'Bulk data request',
+  prompt_privacy: 'Personal data in the question',
+  out_of_scope: 'Outside this system’s scope',
+  oversized: 'Oversized prompt',
+  empty: 'Empty',
+};
+let TAB = 'held', COUNTS = {};
+
+function card(h){
+  const held = h.status === 'held' || h.status === 'refused';
+  const findings = (h.ingress.findings || []).map(f => `
+    <div class="f"><div class="k">${esc(LABEL[f.check] || f.check)}</div>
+      <div class="v">${esc(f.explain)}<br><code>${esc(f.matched)}</code></div></div>`).join('');
+
+  return `<div class="q ${esc(h.status)}">
+    <div class="meta">
+      <span class="sev ${esc(h.severity)}">${esc(h.severity)}</span>
+      <span class="who">${esc(h.user)}</span>
+      <span>· ${esc(h.system)} · ${esc(h.department)}</span>
+      <span>· intent <code>${esc(h.ingress.intent)}</code></span>
+      <span>· ${esc(h.askedAt.slice(11, 19))}</span>
+    </div>
+    <div class="text">${esc(h.question)}</div>
+    <div class="why">${findings}</div>
+    <div class="zero">◦ 0 tokens spent — this never reached a model
+      (ingress took ${h.ingress.latencyMs} ms)</div>
+    ${held ? `<div class="acts">
+        <input id="note-${esc(h.id)}" placeholder="Why? (recorded with your name)"/>
+        <button class="a pass" data-id="${esc(h.id)}" data-d="pass">Pass to the AI</button>
+        <button class="a blk"  data-id="${esc(h.id)}" data-d="block">Block</button>
+      </div>`
+     : `<div class="done"><b>${esc(h.status === 'answered' ? 'Released' : 'Blocked')}</b>
+        by ${esc(h.reviewedBy || '—')} at ${esc((h.reviewedAt || '').slice(11, 19))}
+        ${h.reviewNote ? `· “${esc(h.reviewNote)}”` : ''}
+        ${h.requestId ? `· receipt <code>${esc(h.requestId)}</code>` : ''}</div>`}
+  </div>`;
+}
+
+async function load(){
+  const d = await fetch('/api/review?status=' + encodeURIComponent(TAB), {headers: opHeaders()}).then(r => r.json());
+  COUNTS = d.counts || {};
+  const held = (COUNTS.held || 0) + (COUNTS.refused || 0);
+  $('#nheld').textContent = held;
+  document.title = held ? `(${held}) ControlPlane — question review`
+                        : 'ControlPlane — question review';
+
+  $('#tabs').innerHTML = [
+    ['held', 'Waiting on you', held],
+    ['answered', 'Released', COUNTS.answered || 0],
+    ['blocked', 'Blocked', COUNTS.blocked || 0],
+    ['harmful', 'Refused as harmful', COUNTS.harmful || 0],
+    ['redirected', 'Wrong assistant', COUNTS.redirected || 0],
+    ['personal', 'Not work', COUNTS.outOfPurpose || 0],
+    ['all', 'Everything', d.total || 0],
+  ].map(([k, label, n]) =>
+    `<button class="tab ${TAB === k ? 'on' : ''}" data-t="${k}">${esc(label)}
+      <span>${n}</span></button>`).join('');
+  $('#tabs').querySelectorAll('.tab').forEach(el =>
+    el.onclick = () => { TAB = el.dataset.t; load(); });
+
+  if (TAB === 'harmful'){
+    /* Unlike a wrong-assistant redirect, this IS a governance incident — a
+       person asked the company's own assistant to help them harm somebody. It
+       is not actionable by a reviewer (nothing was generated and there is
+       nothing to release), but the owner of the system needs to know it
+       happened, so it is counted and shown rather than discarded. */
+    const rs = d.harmful || [];
+    $('#list').innerHTML = rs.length ? rs.map(r => `<div class="q blocked">
+        <div class="meta"><span class="sev high">${esc(r.family)}</span>
+          <span class="who">${esc(r.user)}</span>
+          <span>· ${esc(r.system)}</span>
+          <span>· ${esc((r.at || '').slice(11, 19))}</span></div>
+        <div class="text">${esc(r.question)}</div>
+        <div class="why"><div class="f"><div class="k">Refused before the model</div>
+          <div class="v">This reads as a request for help harming a specific person.
+            It was refused at the front door; matched
+            <code>${esc(r.matched)}</code>.</div></div></div>
+        <div class="zero">◦ 0 tokens spent — no model call was made, so the
+          refusal cost nothing at all</div></div>`).join('')
+      : `<div class="empty">Nobody has asked an assistant for help harming
+          somebody. This tab exists because one person did, once, and the
+          assistant answered them before we caught it.</div>`;
+  } else if (TAB === 'personal'){
+    /* Also deliberately not actionable. Nobody did anything wrong; the
+       assistant was simply asked something no assistant here is registered for.
+       It is here because the count is the useful part: if a third of what your
+       support copilot is asked is personal, that is a fact about how the tool is
+       landing with your staff, and it will not show up anywhere else. */
+    const rs = d.outOfPurpose || [];
+    $('#list').innerHTML = rs.length ? rs.map(r => `<div class="q">
+        <div class="meta"><span class="who">${esc(r.user)}</span>
+          <span>· asked ${esc(r.system || r.systemId)}</span>
+          <span>· ${esc((r.at || '').slice(11, 19))}</span></div>
+        <div class="text">${esc(r.question)}</div>
+        <div class="why"><div class="f"><div class="k">Outside every declared purpose</div>
+          <div class="v">This is <b>${esc(r.label || 'personal')}</b>. Every
+            application here is registered to do a job, and this is not one of
+            them — in any department. Matched
+            <code>${esc(r.matched || '')}</code>.</div></div></div>
+        <div class="zero">◦ 0 tokens spent — no model was called, and this never
+          entered your queue</div></div>`).join('')
+      : `<div class="empty">Nobody has asked a work assistant to plan a holiday
+          yet.</div>`;
+  } else if (TAB === 'redirected'){
+    /* Deliberately not actionable. There is nothing for a human to decide about
+       a question that was simply addressed to the wrong assistant — showing it
+       with Pass and Block buttons would train reviewers to click through noise,
+       which is how a review queue dies. */
+    const rs = d.redirects || [];
+    $('#list').innerHTML = rs.length ? rs.map(r => `<div class="q">
+        <div class="meta"><span class="who">${esc(r.user)}</span>
+          <span>· asked ${esc(r.systemId)}</span>
+          <span>· ${esc((r.at || '').slice(11, 19))}</span></div>
+        <div class="text">${esc(r.question)}</div>
+        <div class="why"><div class="f"><div class="k">Wrong assistant</div>
+          <div class="v">This subject belongs to <b>${esc(r.toName || r.to)}</b>, whose
+            documents are the ones that cover it. The person was told, by name, where
+            to ask instead.</div></div></div>
+        <div class="zero">◦ 0 tokens spent — no model was called, and this never
+          entered your queue</div></div>`).join('')
+      : `<div class="empty">Nobody has asked an assistant a question outside its
+          subject yet.</div>`;
+  } else {
+  const rows = d.queue || [];
+  $('#list').innerHTML = rows.length ? rows.map(card).join('')
+    : `<div class="empty">${TAB === 'held'
+        ? 'Nothing is waiting. Every question users asked went straight through.'
+        : 'Nothing here yet.'}</div>`;
+  }
+
+  $('#list').querySelectorAll('button.a').forEach(el => el.onclick = async () => {
+    const id = el.dataset.id;
+    document.querySelectorAll(`button.a[data-id="${id}"]`).forEach(b => b.disabled = true);
+    const note = ($('#note-' + id) || {}).value || '';
+    const r = await fetch('/api/review', {method:'POST', headers: opHeaders(),
+      body: JSON.stringify({heldId: id, decision: el.dataset.d, note})});
+    if (!r.ok) alert('Could not record that: HTTP ' + r.status);
+    await load();
+  });
+}
+
+load();
+setInterval(load, 4000);
+</script>
+</body>
+</html>

@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ControlPlane — for developers</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0F0F17; --surface:#171722; --surface-2:#1E1E2C; --surface-3:#262636;
+  --line:#2E2E40; --line-firm:#43435A;
+  --ink:#EDEDF5; --ink-2:#A8A8BE; --ink-3:#9494B2;
+  --band:#2E1C55; --band-2:#241544; --brand:#B57BFF; --brand-dim:#8B5CF6;
+  --on-brand:#190D30; --brand-on-band:#B57BFF; --brand-wash:rgba(181,123,255,.14);
+  --pass:#00C48C; --repair:#3B9EFF; --escalate:#FFB020; --block:#FF4757;
+  --pass-wash:rgba(0,196,140,.14); --repair-wash:rgba(59,158,255,.14);
+  --escalate-wash:rgba(255,176,32,.14); --block-wash:rgba(255,71,87,.14);
+  --unknown:#7C7C96; --unknown-wash:rgba(124,124,150,.16);
+  --display:'Space Grotesk','Segoe UI',system-ui,sans-serif;
+  --ui:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+:root[data-theme="light"]{
+  --bg:#F6F6FA; --surface:#FFFFFF; --surface-2:#F0F0F6; --surface-3:#E6E6EF;
+  --line:#DCDCE6; --line-firm:#BDBDCE;
+  --ink:#16161F; --ink-2:#55556B; --ink-3:#6B6B84;
+  --brand:#6D28D9; --on-brand:#FFFFFF; --brand-wash:rgba(109,40,217,.10);
+  --pass:#00875A; --repair:#1D6FD0; --escalate:#B26A00; --block:#D62839;
+  --pass-wash:rgba(0,135,90,.12); --repair-wash:rgba(29,111,208,.12);
+  --escalate-wash:rgba(178,106,0,.12); --block-wash:rgba(214,40,57,.12);
+  --unknown:#6B6B84; --unknown-wash:rgba(107,107,132,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.65 var(--ui);min-height:100vh}
+/* The scroll bar was still painted by the browser's light default, so a dark
+   page had a white gutter down the side of it. */
+*{scrollbar-width:thin;scrollbar-color:var(--line-firm) transparent}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line-firm);border-radius:999px;
+  border:3px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--ink-3)}
+
+.band{background:linear-gradient(97deg,var(--band),var(--band-2));
+  display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--line)}
+.mark{font:700 19px/1 var(--display);color:#F2ECFF;letter-spacing:-.2px}
+.mark i{color:var(--brand-on-band);font-style:normal}
+.tagline{font-size:11.5px;color:#C9BEE4;border-left:1px solid rgba(255,255,255,.18);padding-left:14px}
+.band .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.tgl{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.22);color:#E3D9FA;
+  font:500 11px var(--ui);padding:5px 11px;border-radius:999px;cursor:pointer;text-decoration:none}
+.tgl:hover{background:rgba(0,0,0,.45)}
+.tgl.on{background:var(--brand);color:var(--on-brand);border-color:transparent;font-weight:600}
+
+main{max-width:1560px;margin:0 auto;padding:26px 28px 72px;
+  display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:24px;align-items:start}
+@media(max-width:1180px){main{grid-template-columns:minmax(0,1fr)}}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  padding:22px 26px;margin-bottom:20px}
+/* A numbered section deserves a visible edge. Ten cards of identical weight
+   read as one undifferentiated wall, which is how a developer page ends up
+   being scrolled past rather than read. */
+.card{border-left:3px solid var(--line-firm)}
+.card:target,.card:hover{border-left-color:var(--brand)}
+h1{font:700 31px/1.18 var(--display);letter-spacing:-.6px;margin-bottom:8px}
+.lede{color:var(--ink-2);font-size:15px;max-width:76ch;margin-bottom:18px}
+h2{font:700 19px/1.3 var(--display);margin-bottom:5px;letter-spacing:-.2px}
+h2 .num{color:var(--brand);font:600 12px var(--mono);margin-right:10px;
+  background:var(--brand-wash);border-radius:6px;padding:3px 8px;
+  vertical-align:2px}
+.sub{color:var(--ink-3);font-size:13.5px;margin-bottom:15px;max-width:82ch;
+  line-height:1.6}
+p{font-size:14.5px;color:var(--ink-2);margin-bottom:11px;max-width:84ch}
+p b,li b{color:var(--ink);font-weight:600}
+ul{margin:0 0 11px 20px;font-size:14.5px;color:var(--ink-2);max-width:84ch}
+li{margin-bottom:7px;line-height:1.6}
+/* The one thing on this page a reader should not be able to miss. */
+mark{background:var(--brand-wash);color:var(--ink);border-radius:4px;padding:1px 5px;
+  font-weight:600}
+code{font:500 13px var(--mono);background:var(--surface-2);border:1px solid var(--line);
+  border-radius:4px;padding:1px 5px;color:var(--ink)}
+pre{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:12px 13px;
+  overflow-x:auto;margin:9px 0 12px}
+pre code{background:none;border:none;padding:0;font-size:12.5px;line-height:1.7;white-space:pre}
+.tok{color:var(--brand)} .cm{color:var(--ink-3);font-style:italic} .str{color:var(--pass)}
+.mini-h{font:600 10px var(--ui);letter-spacing:1.1px;text-transform:uppercase;color:var(--ink-3);
+  margin:15px 0 7px;padding-top:11px;border-top:1px solid var(--line)}
+.mini-h:first-child{border-top:none;padding-top:0;margin-top:0}
+.kv{display:flex;justify-content:space-between;gap:14px;font-size:13px;padding:6px 0;
+  border-bottom:1px dotted var(--line)}
+.kv span:first-child{color:var(--ink-3)} .kv b{font:500 13px var(--mono);text-align:right}
+select,textarea,input{background:var(--surface-2);border:1px solid var(--line-firm);color:var(--ink);
+  font:400 14px var(--ui);border-radius:8px;padding:10px 12px;width:100%}
+textarea{font:400 13.5px/1.6 var(--mono);resize:vertical;min-height:80px}
+label{display:block;font:600 10.5px var(--ui);letter-spacing:.9px;text-transform:uppercase;
+  color:var(--ink-3);margin:14px 0 5px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+button.act{background:var(--brand);color:var(--on-brand);border:none;border-radius:7px;
+  font:600 12px var(--ui);padding:9px 14px;cursor:pointer;margin-top:12px;width:100%}
+button.act:disabled{opacity:.5;cursor:default}
+.verb{font:700 11px var(--mono);border-radius:4px;padding:2px 7px;letter-spacing:.4px}
+.verb.pass{background:var(--pass-wash);color:var(--pass)}
+.verb.repair{background:var(--repair-wash);color:var(--repair)}
+.verb.escalate{background:var(--escalate-wash);color:var(--escalate)}
+.verb.block{background:var(--block-wash);color:var(--block)}
+.box{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--surface-2);
+  font-size:12px;color:var(--ink-2);margin:9px 0}
+.box.warn{border-color:var(--block);background:var(--block-wash)}
+.box.warn b{color:var(--block)}
+.box.ok{border-color:var(--pass);background:var(--pass-wash)}
+.box.ok b{color:var(--pass)}
+.math{font:500 11.5px var(--mono);color:var(--ink);line-height:1.9}
+.math .d{color:var(--ink-3)}
+.lay{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font:500 11.5px var(--mono);align-items:baseline}
+.lay .n{color:var(--ink-3);font:600 9.5px var(--ui);letter-spacing:.8px;text-transform:uppercase}
+.det{display:grid;grid-template-columns:76px 46px 1fr;gap:7px;font-size:11px;padding:5px 0;
+  border-bottom:1px dotted var(--line);align-items:start}
+.det .n{font:500 11px var(--mono)} .det .sc{font:500 11px var(--mono);text-align:right}
+.det .ev{color:var(--ink-3);font-size:10.5px;line-height:1.45}
+.det.f .n,.det.f .sc{color:var(--block)} .det.t .n,.det.t .sc{color:var(--escalate)}
+.det.q .n,.det.q .sc{color:var(--ink-3)}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.tag{font:500 11.5px var(--mono);border:1px solid var(--line-firm);border-radius:999px;
+  padding:4px 11px;color:var(--ink-2);background:var(--surface-2)}
+.tag.no{border-color:var(--block);color:var(--block)}
+.foot{color:var(--ink-3);font-size:12.5px;line-height:1.6;margin-top:10px;max-width:84ch}
+.toc{display:flex;flex-wrap:wrap;gap:7px;margin:16px 0 4px}
+.toc a{text-decoration:none;border:1px solid var(--line);border-radius:999px;
+  padding:7px 14px;font:500 13px var(--ui);color:var(--ink-2);background:var(--surface)}
+.toc a:hover{border-color:var(--brand);color:var(--ink)}
+.toc a b{font:600 11px var(--mono);color:var(--brand);margin-right:6px}
+blockquote{margin:14px 0;padding:14px 18px;border-left:4px solid var(--brand);
+  background:var(--surface-2);border-radius:0 10px 10px 0;font-size:15px;
+  color:var(--ink-2);line-height:1.7;max-width:84ch}
+blockquote b{color:var(--ink)}
+.sup{border:1px solid var(--line);border-radius:11px;padding:13px 15px;margin-top:10px;
+  background:var(--surface-2)}
+.sup h3{font:700 16px var(--display);margin:0 0 4px;letter-spacing:-.15px}
+.sup .who{font-size:12.5px;color:var(--ink-3);margin-bottom:11px;line-height:1.55}
+.sup ul{margin:6px 0 0 17px;padding:0} .sup li{font-size:13.5px;color:var(--ink-2);
+  margin-bottom:5px;line-height:1.6}
+.sup .yes li::marker{color:var(--pass)} .sup .no li::marker{color:var(--block)}
+.sup .lbl{font:600 10px var(--ui);letter-spacing:.8px;text-transform:uppercase;
+  color:var(--ink-3);margin-top:9px}
+.arb{counter-reset:a;margin-top:12px}
+.arb div{border-left:2px solid var(--escalate);padding:4px 0 4px 12px;margin-bottom:9px}
+.arb b{display:block;font-size:14.5px;color:var(--ink);margin-bottom:2px}
+.arb span{font-size:13px;color:var(--ink-3);line-height:1.6}
+</style>
+</head>
+<body>
+
+<div class="band">
+  <div class="mark">Control<i>Plane</i></div>
+  <div class="tagline">For the teams whose systems are governed</div>
+  <div class="right">
+    <a class="tgl" href="/">Portfolio</a>
+    <a class="tgl" href="/console">Mission Control</a>
+    <a class="tgl" href="/review">Review</a>
+    <a class="tgl" href="/advisor">Advisories</a>
+    <a class="tgl on" href="/developer">Developer</a>
+    <a class="tgl" href="/docs">OpenAPI</a>
+    <button class="tgl" id="theme">Light</button>
+  </div>
+</div>
+
+<main>
+<div>
+  <h1>You were flagged. Here is exactly why.</h1>
+  <p class="lede">A governance system that tells a developer “blocked” and nothing else is an
+  audit, not a platform. Everything that decides your score is on this page, and every claim
+  on it is something you can run here and watch fail.</p>
+  <div class="toc">
+    <a href="#c01"><b>01</b> Integrate</a>
+    <a href="#c02"><b>02</b> Your policy</a>
+    <a href="#c03"><b>03</b> Evidence</a>
+    <a href="#c04"><b>04</b> Subject scope</a>
+    <a href="#c05"><b>05</b> The adjudicator</a>
+    <a href="#c06"><b>06</b> Purpose satisfaction</a>
+    <a href="#c07"><b>07</b> Policy A/B</a>
+    <a href="#c08"><b>08</b> The two supervisors</a>
+    <a href="#c09"><b>09</b> What we do not claim</a>
+    <a href="#c10"><b>10</b> Probe a decision</a>
+  </div>
+  <p class="lede" style="font-size:13.5px">Read in that order and it tells one story: what you
+  send us, what we judge it against, how we judge it, how we know the judging works, and what
+  we refuse to claim. If you only have two minutes, read <b>06</b> — it is the failure class
+  this whole product exists for, and no model on the market refuses it.</p>
+
+  <div class="card" id="c01">
+    <h2><span class="num">01</span>Integrate</h2>
+    <div class="sub">One line changes. You keep your model, your prompts and your SDK.</div>
+    <p>ControlPlane sits in front of the tool call, not inside your prompt. You send what your
+    agent <i>proposes</i>; you get back a decision and a receipt.</p>
+<pre><code><span class="cm"># before</span>
+client = OpenAI(base_url=<span class="str">"https://api.your-provider.com/v1"</span>)
+
+<span class="cm"># after — the only line that changes</span>
+client = OpenAI(base_url=<span class="str">"https://controlplane.internal/v1"</span>)</code></pre>
+    <p>Or call the gate directly when your agent already chooses its own tools:</p>
+<pre><code>curl -X POST http://localhost:8000/api/turn \
+  -H <span class="str">'content-type: application/json'</span> \
+  -H <span class="str">'X-ControlPlane-Token: $CONTROLPLANE_OPERATOR_TOKEN'</span> \
+  -H <span class="str">'X-ControlPlane-Actor: your-service-name'</span> \
+  -d <span class="str">'{"systemId": "support-copilot",
+       "message": "Draft a reply confirming the delivery window.",
+       "toolHint": "ticketing"}'</span></code></pre>
+    <div class="box"><b>What you may not send.</b> Three fields are refused outright, because
+    if you could supply them the governance would be decorative:
+    <div class="tags">
+      <span class="tag no">blastRadius</span><span class="tag no">riskPrice</span>
+      <span class="tag no">action / route</span><span class="tag no">sources (as text)</span>
+      <span class="tag no">governanceStatus</span>
+    </div>
+    Blast radius is <b>derived from the tool binding</b>, never declared. Sources are cited by
+    <b>ID</b> and resolved server-side against an immutable corpus, so a model cannot author the
+    evidence it is checked against.</div>
+  </div>
+
+  <div class="card" id="c02">
+    <h2><span class="num">02</span>The policy in force for your system</h2>
+    <div class="sub">base profile + jurisdiction overlay + active controls = the resolved snapshot
+      your decision is recorded against</div>
+    <label for="sys">System</label>
+    <select id="sys"></select>
+    <div id="pol"><p class="foot">loading…</p></div>
+  </div>
+
+  <div class="card" id="c03">
+    <h2><span class="num">03</span>Evidence — the documents this system can cite</h2>
+    <div class="sub">Grounding is measured against these and nothing else. Add a document
+      and the next answer can cite it; there is no retraining step.</div>
+    <div id="corpus"><p class="foot">loading…</p></div>
+
+    <label for="upl">Add a document</label>
+    <input id="upl" type="file" accept=".txt,.md,.markdown,.csv,.json,.log,.rst,.pdf"/>
+    <div class="foot" style="margin-top:6px">.txt, .md, .csv, .json or .pdf, up to 8&nbsp;MB.
+      It is chunked on arrival and each chunk gets a stable id derived from the file's own
+      bytes — so a citation made today still resolves when the decision is replayed next
+      year.</div>
+    <button class="act" id="doupload" style="width:auto">Upload to this system</button>
+    <div id="uplout"></div>
+  </div>
+
+  <div class="card" id="c04">
+    <h2><span class="num">04</span>Subject scope — what your system is registered to be asked</h2>
+    <div class="sub">Derived from your own documents, not a list we wrote. Upload a file in
+      section 03 and its vocabulary is in scope in the same second; delete it and it is
+      not.</div>
+    <div id="scope"><p class="foot">loading…</p></div>
+    <label for="sq">Try a question against this system</label>
+    <textarea id="sq" style="min-height:52px">Is the 8.4% return on the Horizon fund guaranteed?</textarea>
+    <button class="act" id="scheck" style="width:auto">Where does this question belong?</button>
+    <div id="scopeout"></div>
+  </div>
+
+  <div class="card" id="c05">
+    <h2><span class="num">05</span>The adjudicator, and how we know it works</h2>
+    <div class="sub">A second model checks the answers our documents cannot settle. The
+      obvious objection is that you are now trusting a model to check a model — so it has a
+      labelled test set in the repository, and a score.</div>
+    <ul>
+      <li><b>Two charges, one call.</b> Per claim: does this need a source, and does the
+        source settle it. Whole answer: does it leave out a condition in the sources that
+        changes what you should do. Two judgements, one model call.</li>
+      <li><b>Triggered, not routine.</b> Only when the evidence is already weak and the
+        price is already above the pass line — or when nothing any system holds covers the
+        subject at all. A clean grounded answer never pays for a judge.</li>
+      <li><b>It cannot decide.</b> Its output is an ordinary advisory signal, priced with
+        everything else. It cannot lift a hard gate, lower the evidence floor or un-block an
+        irreversible action.</li>
+      <li><b>It fails closed.</b> Where the judgement was load-bearing and the judge could
+        not be reached, the answer escalates. An unchecked answer is not a cleared answer.</li>
+      <li><b>A low-confidence accusation is downgraded.</b> A <code>contradicted</code>
+        verdict below 0.45 confidence becomes <code>uncovered</code> — we would rather say
+        nobody can confirm it than call it wrong on a coin flip. The downgrade is recorded.</li>
+    </ul>
+    <button class="act" id="jeval" style="width:auto">Score the judge against its labelled
+      set</button>
+    <div id="jevalout"></div>
+  </div>
+
+  <div class="card" id="c06">
+    <h2><span class="num">06</span>Purpose satisfaction — the failure no model refuses</h2>
+    <div class="sub">Every sentence true, nothing to flag, and the person still does not get
+      what they came for. This runs on the answer, needs no documents, costs nothing, and
+      it is the one check here you can break by typing.</div>
+    <p>The case this was built for, in our mentor's words:</p>
+    <blockquote>“My car wash station is two kilometres from my house, but I'm a fitness freak
+      and I want to burn 200 calories today. Should I walk or drive?” — <i>“The answer was:
+      since you're a fitness freak, I suggest you walk. <b>Then what is the purpose of going
+      to a car wash?</b> The purpose is lost.”</i></blockquote>
+    <p>He chose it deliberately over a violent example: <i>“if you say I want to kill my
+      employee, you go and check with Gemini, it will block you — their models are
+      sophisticated. If you can think about something that the models will <b>not</b> block,
+      think about it.”</i> No frontier model refuses this. Nothing in the answer is false.
+      Grounding passes it. A second model agrees with it. And the car stays dirty.</p>
+    <p><b>Why the off-topic check cannot see it.</b> That check fires only when an answer
+      shares <i>no</i> subject word with the question — and here <code>walk</code>,
+      <code>calories</code>, <code>kilometres</code> and <code>fitness</code> all overlap.
+      Measured across the whole answer this is perfectly on topic. It is.</p>
+    <p><b>So we measure one level down.</b> A question does not have one topic; it has one or
+      more <b>objectives</b>, and an answer can be entirely on topic while abandoning one of
+      them. We pull the objectives out of the question — a <b>goal</b> the person states
+      outright (<i>“I want to burn 200 calories”</i>) and an <b>errand</b>, the thing the trip
+      is <i>for</i> (<i>“to my car wash station”</i>) — then check the answer engages each
+      one. The errand is the one that gets dropped, because it is assumed rather than argued
+      for, so it is the one we name.</p>
+    <div class="tags">
+      <span class="tag">6 abandoned objectives, 6 caught</span>
+      <span class="tag">20 ordinary answers, 0 false alarms</span>
+      <span class="tag">0.04 ms</span>
+      <span class="tag">no model call</span>
+    </div>
+    <p class="foot">The false alarm is the expensive error here: telling somebody their
+      perfectly good answer ignored them is the fastest way to get the whole control plane
+      switched off. So an objective counts as served if the answer engages <i>any</i> of its
+      distinctive words. Deliberately generous.</p>
+    <label for="pcase">Try one, or edit either box and break it</label>
+    <select id="pcase"></select>
+    <label for="pq">The question</label>
+    <textarea id="pq" style="min-height:74px"></textarea>
+    <label for="pa">The answer the model gave</label>
+    <textarea id="pa" style="min-height:96px"></textarea>
+    <button class="act" id="prun" style="width:auto">Was the purpose served?</button>
+    <div id="pout"></div>
+  </div>
+
+  <div class="card" id="c07">
+    <h2><span class="num">07</span>Policy A/B — the same answer, judged twice</h2>
+    <div class="sub">The problem statement says a single checking approach rarely
+      works everywhere. This is the demonstration: <b>one model call</b>, one set
+      of detector results, and the decision changes because the rules did.</div>
+    <label for="abcase">Case</label><select id="abcase"></select>
+    <div id="abnote" class="foot"></div>
+    <button class="act" id="abrun" style="width:auto">Run both</button>
+    <div id="about"></div>
+  </div>
+
+
+  <div class="card" id="c08">
+    <h2><span class="num">08</span>The two supervisors, and who wins</h2>
+    <div class="sub">We were asked where the supervisory agents are in our architecture, and
+      who wins when they disagree. The honest answer is that both were already here and
+      neither was named. This names them — and it is read from the same place the code reads
+      it, so this page cannot describe an architecture the running system does not have.</div>
+    <div id="sups"><p class="foot">loading…</p></div>
+    <p class="foot"><b>Two of Safety's gates run before the model.</b> The judgement
+      there is Safety's — is this a request to harm somebody, is that a word this
+      organisation will not send out — and the <i>position</i> is Cost's contribution:
+      running them at the door is why a refused question costs nothing. Neither
+      supervisor owns that pair alone, so a receipt for a pre-model refusal names both.</p>
+    <p class="foot"><b>What we are not claiming.</b> These are not autonomous LLM agents.
+      They are deterministic supervisors with written charters, and there is no negotiation
+      between them — arbitration is a fixed rule, because a conversation is a thing an
+      attacker can join. The one model-based check we do run, the adjudicator in section 05,
+      is explicitly advisory and cannot lift a gate.</p>
+    <p class="foot">Every receipt carries a <code>supervisors</code> block naming which
+      supervisor raised what, who decided, and under which rule — so the attribution is
+      auditable per decision rather than asserted on a slide.</p>
+  </div>
+
+  <div class="card" id="c09">
+    <h2><span class="num">09</span>What we do not claim</h2>
+    <div class="sub">Read this before you argue with a score.</div>
+    <ul>
+      <li><b>Grounding</b> is lexical support checking against the resolved corpus, plus numeric
+        conflict detection. It is not semantic verification, and it will miss a paraphrase that
+        shares no vocabulary with its source.</li>
+      <li><b>Privacy</b> finds format-valid candidate identifiers — Luhn for 13–19 digit card
+        numbers, Verhoeff for 12-digit national IDs. A random 17-digit number fails the checksum
+        and is <i>not</i> flagged. This is deliberate: a detector that flags every long number is
+        a detector nobody reads.</li>
+      <li><b>Fairness</b> is a bounded counterfactual probe over four substitution pairs. It
+        detects a flip on those probes. It is not a fairness guarantee.</li>
+      <li><b>Cost</b> compares against a rolling median of the last 200 decisions. On a cold
+        window it has no opinion and says so rather than guessing.</li>
+      <li><b>Completeness</b> (the omission check) is pattern matching over the sentences
+        retrieval surfaced. It finds a condition the answer walked past; it cannot judge
+        whether walking past it mattered in your situation, and it will miss an omission
+        phrased in words that appear nowhere in your documents. That case is what the
+        adjudicator's second charge is for.</li>
+      <li><b>Subject scope</b> is lexical. It is a routing aid, deliberately asymmetric —
+        it would much rather answer a borderline question under full governance than turn a
+        colleague away from the assistant that could have helped them.</li>
+      <li><b>The adjudicator</b> is a language model. It is advisory by construction, scored
+        against a labelled set that we wrote, and the set is small. We report the false
+        alarm rate next to the catch rate because for a checker the false alarm is the
+        expensive error.</li>
+      <li><b>Refusals</b> are detected by pattern, not understood. An assistant
+        that declines in wording we do not recognise will have its refusal
+        measured as a claim; the failure direction is a false warning, never a
+        missed one.</li>
+      <li><b>Capability overclaim</b> is checked against the registry for the
+        verbs we have mapped. An unmapped verb produces no finding at all rather
+        than a guessed requirement — we would rather miss one than invent one.</li>
+      <li><b>Budgets.</b> Reviewer capacity is a real cap with a reservation, so
+        concurrent questions cannot each pass the same pre-flight check. Spend is
+        a warning only, and we say why: a token cap that bit would need thousands
+        of questions, and one that bit quickly would be a fiction.</li>
+      <li><b>Costs.</b> Model spend uses one flat rate per thousand tokens, not a
+        per-model input/output price, and the offline provider estimates tokens
+        from text length. The reviewer-minute rate is an assumption we publish
+        (₹8/min), not a measured figure. Both are labelled as estimates on every
+        surface that shows them.</li>
+      <li>The <b>operator token</b> is a prototype boundary, not enterprise IAM.
+        It is a shared secret, not authenticated identity, and the name on a
+        review is attribution rather than proof. Reads that can return a person's
+        words are behind it; aggregate and configuration reads are not.</li>
+      <li>There is <b>no external tool executor</b> in this build. The gate sits
+        in front of the tool call and decides; nothing downstream of it actually
+        issues a payment, a send or a restart. "Withheld" means the call was not
+        issued <i>by this system</i>, and a production integration would need the
+        executor to run behind the gate rather than beside it.</li>
+      <li><b>Seeded history is synthetic</b> and labelled as such on the
+        portfolio. Period figures separate it from live traffic.</li>
+      <li>The ledger is <b>tamper-evident</b> under protected key management — a SHA-256 chain
+        with an HMAC signature. It is not tamper-proof, and we will not call it that.
+        A tampered tail is detected before the next entry chains onto it and is
+        reported by <code>/health</code>, but by default the log <i>keeps
+        writing</i>: a governance system that stops recording the moment
+        something looks wrong destroys the trail an investigator needs, and hands
+        anyone who can touch one byte a way to silence it.
+        <code>LEDGER_STRICT_APPEND=1</code> switches to refusing instead.</li>
+    </ul>
+  </div>
+</div>
+
+<div>
+  <div class="card" id="c10">
+    <h2><span class="num">10</span>Probe a decision</h2>
+    <div class="sub">The same gate the fleet runs through. Nothing here is a simulation.</div>
+    <label for="psys">System</label><select id="psys"></select>
+    <div class="row">
+      <div><label for="ptool">Tool the agent picks</label><select id="ptool"></select></div>
+      <div><label for="pamt">Amount (₹, optional)</label><input id="pamt" type="number" min="0" placeholder="—"/></div>
+    </div>
+    <label for="pmsg">Message</label>
+    <textarea id="pmsg">Send this festive campaign to all customers.</textarea>
+    <button class="act" id="go">Run it through the gate</button>
+    <div id="out"></div>
+  </div>
+</div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function applyTheme(t){ document.documentElement.setAttribute('data-theme', t);
+  $('#theme').textContent = t === 'dark' ? 'Light' : 'Dark';
+  try{ localStorage.setItem('cp-theme', t); }catch(e){} }
+let th = 'dark'; try{ th = localStorage.getItem('cp-theme') || 'dark'; }catch(e){}
+applyTheme(th);
+$('#theme').onclick = () => applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+
+const DEFAULT_ACTOR = 'developer-console';
+function opHeaders(){
+  return {'content-type':'application/json',
+          'X-ControlPlane-Actor': DEFAULT_ACTOR,
+          'X-ControlPlane-Token': (window.CP_TOKEN || 'operator-dev-token')};
+}
+
+let SYSTEMS = [];
+
+/* ------------------------------------------------------ policy in force --- */
+function renderPolicy(p){
+  const base = p.layers.base, j = p.layers.jurisdiction, res = p.resolved;
+  const arrow = (b, r) => b === r ? `${b}` : `${b} <span class="d">→</span> ${r}`;
+  $('#pol').innerHTML = `
+    <div class="lay" style="margin:10px 0 4px">
+      <div class="n">owner</div><div>${esc(p.owner)} · ${esc(p.department)}</div>
+      <div class="n">audience</div><div>${esc(p.audience)}${p.regulated ? ' · regulated' : ''}</div>
+      <div class="n">jurisdiction</div><div>${esc(p.jurisdiction || '—')}</div>
+      <div class="n">ceiling</div><div>max_action ${esc(p.maxAction)} · authorised ${p.authorisedActions.join(', ')}</div>
+    </div>
+    <div class="mini-h">Thresholds — base → resolved</div>
+    <div class="math">
+      pass &nbsp;&nbsp;&nbsp;&nbsp;${arrow(base.thresholds.pass, res.thresholds.pass)}<br>
+      repair &nbsp;&nbsp;${arrow(base.thresholds.repair, res.thresholds.repair)}<br>
+      escalate ${arrow(base.thresholds.escalate, res.thresholds.escalate)}
+    </div>
+    ${j ? (() => {
+      const raised = Object.entries(j.weights).filter(([k,v]) => (base.weights[k] ?? 0) < v);
+      const floors = Object.entries(j.weights).filter(([k,v]) => (base.weights[k] ?? 0) >= v);
+      return `<div class="box">The <b>${esc(p.jurisdiction.toUpperCase())}</b> overlay subtracts
+      ${Object.entries(j.delta).map(([k,v]) => k + ' −' + v).join(', ')} from the thresholds${
+        raised.length ? ' and raises ' + raised.map(([k,v]) => k + ' ' + (base.weights[k] ?? '—')
+          + ' → ' + v).join(', ') : ''}.${
+        floors.length ? ` It also sets a floor of ${floors.map(([k,v]) => k + ' ≥ ' + v).join(', ')},
+          which this profile already exceeds, so nothing changes.` : ''}
+      Retention ${j.retention_days} days. An overlay only ever <b>tightens</b>: it can raise a
+      weight, never lower one.</div>`; })() : ''}
+    ${p.layers.controls.length ? `<div class="box warn"><b>${p.layers.controls.length} active
+      control${p.layers.controls.length > 1 ? 's' : ''}.</b> ` +
+      p.layers.controls.map(c => `${esc(c.kind)} (v${c.version}, by ${esc(c.approvedBy || 'auto')},
+        until ${esc(c.expiresAtUtc)}) — ${esc(c.reason)}`).join('<br>') + `</div>`
+      : `<div class="foot">No active controls on this system.</div>`}
+    <div class="mini-h">Detectors</div>
+    <div class="kv"><span>inline (inside the ${res.latencyBudgetMs} ms deadline)</span><b>${res.inline.join(', ') || '—'}</b></div>
+    <div class="kv"><span>deferred (verified after the answer)</span><b>${res.deferred.join(', ') || '—'}</b></div>
+    <div class="kv"><span>mandatory (missing ⇒ not fully governed)</span><b>${res.mandatory.join(', ') || '—'}</b></div>
+    <div class="kv"><span>hard gate on</span><b>${res.hardGateActions.join(', ') || '—'}</b></div>
+    <div class="mini-h">Weights — base → resolved</div>
+    ${Object.keys(res.weights).map(k => `<div class="kv"><span>${esc(k)}</span><b>${
+      arrow(base.weights[k] ?? '—', res.weights[k])}</b></div>`).join('')}
+    <div class="mini-h">Tools bound to this system</div>
+    ${p.tools.map(t => `<div class="kv"><span>${esc(t.id)}</span><b>${esc(t.effectiveAction)}${
+      t.reversible ? '' : ' · irreversible'}${t.approvalRequired ? ' · approval' : ''}${
+      t.maxAmountInr !== null ? ' · ≤ ₹' + t.maxAmountInr.toLocaleString('en-IN') : ''}</b></div>`).join('')}
+    <div class="foot">The effective action comes from this table, not from what your code
+    declares. That is the only reason blast radius means anything.</div>
+    <div class="mini-h">Citable source IDs</div>
+    <div class="tags">${p.corpus.map(c => `<span class="tag">${esc(c)}</span>`).join('') ||
+      '<span class="foot">none registered</span>'}</div>
+    <div class="foot">Cite these IDs. The server resolves them to text. An ID that does not exist
+    becomes an <code>unverifiable</code> finding — it does not silently pass.</div>`;
+}
+
+/* ------------------------------------------------------------- evidence --- */
+function kb(n){ return n > 1024 ? (n / 1024).toFixed(1) + 'k' : n; }
+
+async function loadCorpus(id){
+  const d = await fetch('/api/corpus/' + encodeURIComponent(id), {headers: opHeaders()}).then(r => r.json());
+  const docs = d.documents || [];
+  $('#corpus').innerHTML = `
+    <div class="kv"><span>documents</span><b>${d.stats.documents}</b></div>
+    <div class="kv"><span>citable chunks</span><b>${d.stats.chunks}</b></div>
+    <div class="kv"><span>indexed characters</span><b>${kb(d.stats.chars)}</b></div>
+    ${docs.length ? docs.map(doc => `
+      <div class="kv"><span>${esc(doc.title)}
+        <span style="color:var(--ink-3)">· ${doc.chunks} chunks · ${esc(doc.origin)}</span></span>
+        <b><button class="rm" data-d="${esc(doc.docId)}"
+           style="background:none;border:1px solid var(--line-firm);color:var(--ink-3);
+           border-radius:999px;font:500 10px var(--ui);padding:2px 9px;cursor:pointer">remove</button></b></div>`
+      ).join('')
+      : `<div class="foot">No documents. Every answer from this system will be
+         <code>parametric</code> — the model's own memory, which cannot be verified.</div>`}
+    <div class="foot">Retrieval is BM25 over this system's own chunks only. Scoped, so a
+      support copilot can never cite an HR document.</div>`;
+  $('#corpus').querySelectorAll('.rm').forEach(el => el.onclick = async () => {
+    if (!confirm('Remove this document? Answers will no longer be able to cite it.')) return;
+    await fetch('/api/corpus/' + encodeURIComponent(id) + '/' +
+                encodeURIComponent(el.dataset.d), {method:'DELETE', headers: opHeaders()});
+    await loadCorpus(id);
+    await loadScope(id);
+  });
+}
+
+$('#doupload').onclick = async () => {
+  const f = $('#upl').files[0];
+  if (!f){ $('#uplout').innerHTML = `<div class="box warn">Choose a file first.</div>`; return; }
+  const btn = $('#doupload'); btn.disabled = true; btn.textContent = 'Uploading…';
+  try{
+    const fd = new FormData(); fd.append('file', f);
+    const r = await fetch('/api/corpus/' + encodeURIComponent($('#sys').value),
+      {method:'POST', body: fd,
+       headers:{'X-ControlPlane-Actor': DEFAULT_ACTOR,
+                'X-ControlPlane-Token': (window.CP_TOKEN || 'operator-dev-token')}});
+    const d = await r.json();
+    $('#uplout').innerHTML = r.ok
+      ? `<div class="box ok"><b>${esc(d.document.title)} is now citable.</b>
+         ${d.document.chunks} chunks, first id <code>${esc(d.document.chunkIds[0])}</code>.
+         Ask this system about it and the answer can ground in it immediately.</div>`
+      : `<div class="box warn"><b>Not ingested.</b> ${esc(d.detail || 'unknown error')}</div>`;
+    await loadCorpus($('#sys').value);
+    // A new document widens what this system is in scope to be asked. Show it.
+    await loadScope($('#sys').value);
+  } finally { btn.disabled = false; btn.textContent = 'Upload to this system'; }
+};
+
+async function loadPolicy(id){
+  $('#pol').innerHTML = '<p class="foot">loading…</p>';
+  try{
+    const p = await fetch('/api/policy/' + encodeURIComponent(id)).then(r => r.json());
+    if (p.detail){ $('#pol').innerHTML = `<div class="box warn">${esc(p.detail)}</div>`; return; }
+    renderPolicy(p);
+  }catch(e){ $('#pol').innerHTML = `<div class="box warn">could not load the policy: ${esc(e.message)}</div>`; }
+}
+
+/* --------------------------------------------------------------- the probe --- */
+function toolsFor(id){
+  const s = SYSTEMS.find(x => x.systemId === id);
+  return (s && s.tools) ? s.tools : [];
+}
+function fillTools(){
+  const id = $('#psys').value;
+  const ts = toolsFor(id);
+  $('#ptool').innerHTML = `<option value="">— let the agent choose —</option>` +
+    ts.map(t => `<option value="${esc(t.id)}">${esc(t.id)} · proves ${esc(t.effectiveAction)}</option>`).join('');
+}
+
+function renderReceipt(d){
+  const cap = d.capability || {}, risk = d.risk || {}, gov = d.governance || {},
+        se = d.decision.sideEffect || {}, th = (d.policy || {}).thresholds || {};
+  const glyph = s => (s === 'completed' || s === 'completed_async') ? '✓'
+    : s === 'timed_out' ? '⧗' : s === 'queued_async' ? '·' : s === 'skipped_by_policy' ? '–' : '✗';
+  const klass = s => s === 'timed_out' ? 't' : s === 'failed' ? 'f'
+    : (s === 'queued_async' || s === 'skipped_by_policy') ? 'q' : '';
+  const seLabel = {withheld:'NOTHING HAPPENED', held_for_human:'HELD FOR A HUMAN',
+    performed:'THE TOOL ACTED', performed_after_repair:'ACTED, AFTER REPAIR',
+    released:'ANSWER RELEASED', released_after_repair:'RELEASED, REWRITTEN'}[se.state]
+    || String(se.state || '—').toUpperCase();
+
+  $('#out').innerHTML = `
+    <div class="mini-h">Decision</div>
+    <div class="kv"><span>route</span><b><span class="verb ${d.decision.action}">${
+      d.decision.action.toUpperCase()}</span></b></div>
+    <div class="kv"><span>what happened</span><b>${esc(seLabel)}</b></div>
+    <div class="box ${d.decision.action === 'pass' ? 'ok' : 'warn'}">
+      <b>Why.</b> ${esc(d.decision.reason)}</div>
+
+    <div class="mini-h">The arithmetic</div>
+    <div class="math">
+      declared &nbsp;<b>${esc(cap.declaredAction)}</b>
+        ${cap.capabilityMismatch ? `<span class="d">→ the binding proves</span>
+        <b style="color:var(--block)">${esc(cap.effectiveAction)}</b>` : ''}<br>
+      blast_radius &nbsp;<b>${cap.blastRadius}</b>
+        <span class="d">&nbsp;← ACTION_RADIUS['${esc(cap.effectiveAction)}']${
+          d.policy && d.policy.audience === 'external' ? ' × 1.15 external' : ''}</span><br>
+      p_failure &nbsp;<b>${risk.pFailure}</b>
+        <span class="d">&nbsp;← noisy-OR, dominant '${esc(risk.dominant || '—')}'</span><br>
+      <span class="d">────────</span><br>
+      risk_price &nbsp;<b>${risk.price}</b>
+        <span class="d">&nbsp;= ${risk.pFailure} × ${cap.blastRadius} × 100</span><br>
+      band &nbsp;<b>${(risk.band || []).join('–')}</b>
+        <span class="d">&nbsp;← confidence ${risk.confidence ?? '—'}</span><br>
+      thresholds <span class="d">pass &lt;</span> ${th.pass ?? '—'}
+        <span class="d">· repair &lt;</span> ${th.repair ?? '—'}
+        <span class="d">· escalate &lt;</span> ${th.escalate ?? '—'}
+    </div>
+    ${cap.capabilityMismatch ? `<div class="box warn"><b>Capability mismatch.</b>
+      ${(cap.reasons || []).map(esc).join(' · ')}<br>
+      Fix it in your code by declaring the action the tool actually performs, or bind a tool that
+      only does what you declared. The gate will not take your word for it.</div>` : ''}
+
+    <div class="mini-h">Evidence</div>
+    ${(d.detectors || []).map(x => `<div class="det ${klass(x.status)}">
+      <span class="n">${glyph(x.status)} ${esc(x.detectorId)}</span>
+      <span class="sc">${x.score === null ? '—' : x.score}</span>
+      <span class="ev">${esc((x.evidence || [])[0] || x.status.replace(/_/g,' '))}${
+        x.requirement === 'mandatory' ? ' <b>· mandatory</b>' : ''}</span></div>`).join('')}
+    <div class="kv"><span>governance</span><b>${esc(gov.status)}</b></div>
+    <div class="kv"><span>decision clock</span><b>${Math.round(d.decisionLatencyMs)} ms</b></div>
+    <div class="kv"><span>verification clock</span><b>${d.verificationLatencyMs === null
+      ? 'pending' : (d.verificationLatencyMs/1000).toFixed(1) + ' s'}</b></div>
+    <div class="kv"><span>receipt</span><b>${esc(d.requestId)}</b></div>
+    <div class="foot">This decision is in the ledger. Open
+      <code>/api/decision/${esc(d.requestId)}</code> for the full record, or
+      <code>/api/reproduce/${esc(d.requestId)}</code> to replay it under the policy snapshot that
+      was in force.</div>`;
+}
+
+$('#go').onclick = async () => {
+  const btn = $('#go'); btn.disabled = true; btn.textContent = 'running…';
+  $('#out').innerHTML = '';
+  try{
+    const amt = parseFloat($('#pamt').value);
+    const body = {systemId: $('#psys').value, message: $('#pmsg').value};
+    if ($('#ptool').value) body.toolHint = $('#ptool').value;
+    if (!Number.isNaN(amt)) body.amountInr = amt;
+    const r = await fetch('/api/turn', {method:'POST', headers: opHeaders(),
+                                        body: JSON.stringify(body)});
+    if (!r.ok){
+      const t = await r.text();
+      $('#out').innerHTML = `<div class="box warn"><b>HTTP ${r.status}.</b> ${esc(t)}</div>`;
+      return;
+    }
+    const d = await fetch('/api/decision/' + (await r.json()).requestId, {headers: opHeaders()}).then(x => x.json());
+    renderReceipt(d);
+  }catch(e){
+    $('#out').innerHTML = `<div class="box warn"><b>Request failed.</b> ${esc(e.message)}</div>`;
+  }finally{ btn.disabled = false; btn.textContent = 'Run it through the gate'; }
+};
+
+/* ------------------------------------------------ 04 · subject scope --- */
+async function loadScope(id){
+  const d = await fetch('/api/scope').then(r => r.json());
+  const row = (d.index.systems || {})[id] || {signatureTerms: 0, chunks: 0, top: []};
+  $('#scope').innerHTML = `
+    <div class="kv"><span>signature terms</span><b>${row.signatureTerms}</b></div>
+    <div class="kv"><span>derived from</span><b>${row.chunks} indexed chunks</b></div>
+    <div class="kv"><span>strongest terms</span><b style="font:500 11px var(--mono)">${
+      (row.top || []).map(esc).join(' · ') || '—'}</b></div>
+    <div class="foot">A term is a <i>signature</i> term when the clear majority of its mass
+      across the whole fleet sits in this system's documents. That is what lets us tell a
+      question about fund performance from a question about retail returns when both use the
+      word “returns”.</div>`;
+}
+
+$('#scheck').onclick = async () => {
+  const id = $('#sys').value, q = $('#sq').value.trim();
+  if (!q) return;
+  const btn = $('#scheck'); btn.disabled = true;
+  try{
+    const d = await fetch('/api/scope?systemId=' + encodeURIComponent(id) +
+                          '&question=' + encodeURIComponent(q)).then(r => r.json());
+    const v = d.verdict || {};
+    const tone = {in_scope: 'var(--pass)', foreign: 'var(--repair)',
+                  uncovered: 'var(--escalate)'}[v.verdict] || 'var(--ink-2)';
+    $('#scopeout').innerHTML = `
+      <div class="kv"><span>verdict</span><b style="color:${tone}">${esc(v.verdict)}</b></div>
+      <div class="kv"><span>why</span><b style="font-weight:400">${esc(v.reason)}</b></div>
+      <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:12px">
+        <tr style="color:var(--ink-3);text-align:left">
+          <th style="padding:5px 0">system</th><th>coverage (BM25)</th>
+          <th>distinctiveness</th><th>matched</th></tr>
+        ${(d.ranked || []).map(r => `<tr style="border-top:1px solid var(--line)${
+            r.systemId === id ? ';color:var(--ink);font-weight:600' : ''}">
+          <td style="padding:6px 0">${esc(r.name)}</td>
+          <td>${esc(r.coverage)}</td><td>${esc(r.distinctiveness)}</td>
+          <td style="font:400 11px var(--mono);color:var(--ink-3)">${
+            (r.matched || []).map(esc).join(' ') || '—'}</td></tr>`).join('')}
+      </table>
+      <div class="foot">A question is only handed to another assistant when that system wins
+        on <b>both</b> signals by a margin. One signal alone is how a scope check becomes the
+        feature everybody disables.</div>`;
+  } finally { btn.disabled = false; }
+};
+
+/* --------------------------------------------- 05 · the judge's score --- */
+$('#jeval').onclick = async () => {
+  const btn = $('#jeval'); btn.disabled = true;
+  btn.textContent = 'scoring…';
+  try{
+    const d = await fetch('/api/judge/eval').then(r => r.json());
+    const pct = n => (n * 100).toFixed(1) + '%';
+    const rows = (d.rows || []).map(r => `
+      <tr style="border-top:1px solid var(--line)">
+        <td style="padding:6px 0;color:${r.ok ? 'var(--pass)' : 'var(--escalate)'}">${
+          r.ok ? 'ok' : 'MISS'}</td>
+        <td style="font:400 11px var(--mono)">${esc(r.id)}</td>
+        <td>${esc(r.gotVerdict || '—')}</td>
+        <td>${esc(r.gotSufficiency)}</td>
+        <td style="color:var(--ink-3)">${esc(r.expectVerdict || '—')} / ${
+          esc(r.expectSufficiency)}</td></tr>`).join('');
+    $('#jevalout').innerHTML = `
+      <div class="kv"><span>judge</span><b>${esc(d.judge)}</b></div>
+      <div class="kv"><span>catch rate</span><b style="color:var(--pass)">${pct(d.catchRate)}</b>
+        </div>
+      <div class="kv"><span>false alarm rate</span><b style="color:${
+        d.falseAlarmRate > 0.2 ? 'var(--escalate)' : 'var(--pass)'}">${
+        pct(d.falseAlarmRate)}</b></div>
+      <div class="kv"><span>claim verdict agreement</span><b>${pct(d.verdictAgreement)}</b></div>
+      <div class="kv"><span>sufficiency agreement</span><b>${pct(d.sufficiencyAgreement)}</b></div>
+      <div class="kv"><span>exact, both charges</span><b>${pct(d.exactAgreement)}</b></div>
+      <div class="kv"><span>tokens spent</span><b>${d.tokens}</b></div>
+      <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:12px">
+        <tr style="color:var(--ink-3);text-align:left"><th style="padding:5px 0"></th>
+          <th>case</th><th>verdict</th><th>sufficiency</th><th>expected</th></tr>
+        ${rows}</table>
+      <div class="foot">Sixteen labelled cases, nine of them deliberately clean. Run the same
+        thing yourself with <code>python -m python.controlplane.judge_eval</code>, or against
+        the live model with <code>--live</code>. The one case the deterministic reference
+        judge misses is the paraphrase: lexical overlap cannot see that “the card you paid
+        with” entails “the original payment method”. That is exactly what the live model is
+        there for.</div>`;
+  } finally { btn.disabled = false; btn.textContent = 'Score the judge against its labelled set'; }
+};
+
+/* ------------------------------------------------ 06 · policy A/B --- */
+let AB = [];
+async function loadAB(){
+  const d = await fetch('/api/policy-ab/presets').then(r => r.json());
+  AB = d.presets || [];
+  $('#abcase').innerHTML = AB.map((p, i) =>
+    `<option value="${i}">${esc(p.label)} — ${esc(p.systemId)}</option>`).join('');
+  showABNote();
+}
+function showABNote(){
+  const p = AB[+$('#abcase').value] || {};
+  $('#abnote').innerHTML = `<b>${esc(p.message || '')}</b><br>${esc(p.note || '')}`;
+}
+
+$('#abrun').onclick = async () => {
+  const p = AB[+$('#abcase').value];
+  if (!p) return;
+  const btn = $('#abrun'); btn.disabled = true; btn.textContent = 'running…';
+  try{
+    const r = await fetch('/api/policy-ab', {method:'POST', headers: opHeaders(),
+      body: JSON.stringify({systemId: p.systemId, message: p.message,
+                            variants: p.variants})});
+    const d = await r.json();
+    if (!r.ok){ $('#about').innerHTML =
+      `<div class="box warn">${esc(d.detail || 'failed')}</div>`; return; }
+    const col = c => `
+      <div style="flex:1 1 260px;border:1px solid var(--line);border-radius:10px;
+                  padding:12px 14px">
+        <div style="font:700 12px var(--ui);letter-spacing:.4px;margin-bottom:8px">
+          ${esc(c.label)}</div>
+        <div class="kv"><span>decision</span><b style="text-transform:uppercase;
+          color:var(--${esc(c.decision.action)})">${esc(c.decision.action)}</b></div>
+        <div class="kv"><span>risk price</span><b>${esc(c.risk.price)}</b></div>
+        <div class="kv"><span>thresholds</span><b style="font:400 11px var(--mono)">
+          pass ${esc(c.thresholds.pass)} · repair ${esc(c.thresholds.repair)} ·
+          escalate ${esc(c.thresholds.escalate)}</b></div>
+        <div class="kv"><span>jurisdiction</span><b>${esc(c.jurisdiction || '—')}</b></div>
+        <div class="foot" style="margin-top:8px">${esc(c.decision.reason)}</div>
+      </div>`;
+    $('#about').innerHTML = `
+      <div class="box ${d.identical ? '' : 'ok'}" style="margin-bottom:12px">
+        <b>${esc(d.verdict)}</b></div>
+      <div class="kv"><span>model calls</span><b>${esc(d.modelCalls)}</b></div>
+      <div class="kv"><span>detectors, shared by both</span>
+        <b style="font:400 11px var(--mono)">${(d.detectorsShared||[]).map(esc).join(' · ')}</b></div>
+      <div class="kv"><span>the answer, identical in both</span>
+        <b style="font-weight:400">${esc((d.answer || '').slice(0, 160))}</b></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px">
+        ${d.columns.map(col).join('')}</div>
+      <div class="foot">One model call, one set of detector results. Running the
+        model twice would have been easier and would have proved nothing, because
+        any difference could have been the model.</div>`;
+  } finally { btn.disabled = false; btn.textContent = 'Run both'; }
+};
+
+
+/* ---------------------------------------------------------------- 06 · purpose
+   The demo has to live here and not on /chat, because the car-wash question
+   belongs to no department: subject scope would redirect it before any of this
+   ran, which is correct behaviour and useless for showing the check. */
+const PCASES = [
+  {label: "The car wash — the answer that loses the purpose",
+   q: "My car wash station is two kilometres from my house, but I am a fitness freak and I want to burn 200 calories today. Should I walk to my car wash station or should I drive?",
+   a: "Since you are a fitness freak, walking is the better choice. A two kilometre walk each way burns roughly 200 calories for most adults, so you would hit your target for the day."},
+  {label: "The car wash — an answer that holds both objectives",
+   q: "My car wash station is two kilometres from my house, but I am a fitness freak and I want to burn 200 calories today. Should I walk to my car wash station or should I drive?",
+   a: "Walking two kilometres each way burns roughly 200 calories, so it would meet your target. One thing to weigh: if you are taking the car to the car wash, walking there leaves the car at home and the wash does not get done. Drive to the wash and walk somewhere else later, or walk there and bring the car over afterwards."},
+  {label: "Same shape, different errand — the prescription",
+   q: "The pharmacy is one kilometre away and I need to collect my prescription, but I also want to hit 10000 steps today. Should I walk or take an auto?",
+   a: "Walking is the better option for your step count. One kilometre is about 1300 steps, so a round trip gives you 2600 steps towards your goal."},
+  {label: "An ordinary good answer — this must stay quiet",
+   q: "I want to return an order that arrived damaged. What is the process?",
+   a: "You can raise a return within seven days of delivery. Open the order in your account, select Return, choose Damaged on arrival, and upload a photo. A pickup is scheduled within two business days and the refund is issued once the item reaches the warehouse."},
+];
+
+function fillPCase(){
+  const c = PCASES[+$('#pcase').value] || PCASES[0];
+  $('#pq').value = c.q; $('#pa').value = c.a; $('#pout').innerHTML = '';
+}
+
+$('#prun').onclick = async () => {
+  const btn = $('#prun'); btn.disabled = true;
+  try{
+    const r = await fetch('/api/purpose-check', {method:'POST',
+      headers:{'content-type':'application/json'},
+      body: JSON.stringify({question: $('#pq').value, answer: $('#pa').value})});
+    const d = await r.json();
+    if (!r.ok){ $('#pout').innerHTML =
+      `<div class="box warn">${esc(d.detail || 'failed')}</div>`; return; }
+    const o = d.objectives || {}, det = d.detector || {};
+    const chip = ob => {
+      const missed = (o.unserved || []).some(u => u.text === ob.text);
+      return `<span class="tag ${missed ? 'no' : ''}">${missed ? '\u2717' : '\u2713'}
+        ${esc(ob.kind)}: ${esc(ob.text)}</span>`;
+    };
+    $('#pout').innerHTML = `
+      <div class="box ${d.purposeServed ? 'ok' : 'warn'}" style="margin-top:12px">
+        <b>${d.purposeServed
+              ? 'The answer engages with everything the question was trying to achieve.'
+              : esc(d.plainEnglish)}</b></div>
+      <div class="kv"><span>what the person was trying to do</span><b></b></div>
+      <div class="tags">${(o.objectives || []).map(chip).join('') ||
+        '<span class="tag">no stated objective found — nothing is claimed</span>'}</div>
+      <div class="kv"><span>offers a choice between options</span>
+        <b>${o.offersAChoice ? 'yes — this is where objectives get traded away' : 'no'}</b></div>
+      <div class="kv"><span>purpose detector score</span><b>${esc(det.score)}</b></div>
+      <div class="kv"><span>labels</span><b style="font:400 11px var(--mono)">${
+        (det.labels || []).map(esc).join(' \u00b7 ') || 'none'}</b></div>
+      <div class="kv"><span>model calls</span><b>0</b></div>
+      ${(det.evidence || []).map(e => `<div class="foot">${esc(e)}</div>`).join('')}
+      <div class="foot">In a real turn this feeds the routing floor: an answer that
+        does not serve a stated objective escalates whatever it scored, because
+        it is a fact about the text and not a probability.</div>`;
+  } finally { btn.disabled = false; }
+};
+
+/* ------------------------------------------------------------ 08 · supervisors */
+async function loadSupervisors(){
+  const d = await fetch('/api/supervisors').then(r => r.json());
+  const card = s => `
+    <div class="sup">
+      <h3>${esc(s.name)}</h3>
+      <div class="who">answers to ${esc(s.answersTo)} \u00b7 jurisdiction:
+        ${esc(s.jurisdiction)}</div>
+      <div class="lbl">It may</div>
+      <ul class="yes">${(s.may || []).map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+      <div class="lbl">It may not</div>
+      <ul class="no">${(s.mayNot || []).map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+      <div class="lbl">Reads</div>
+      <div class="tags">${(s.detectors || []).map(x =>
+        `<span class="tag">${esc(x)}</span>`).join('') || '<span class="tag">—</span>'}</div>
+      <div class="lbl">Owns these gates</div>
+      <div class="tags">${(s.gates || []).map(x =>
+        `<span class="tag">${esc(x)}</span>`).join('')}</div>
+    </div>`;
+  $('#sups').innerHTML = `
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      ${(d.supervisors || []).map(s =>
+        `<div style="flex:1 1 320px">${card(s)}</div>`).join('')}
+    </div>
+    <div class="lbl" style="margin-top:14px;font:600 10px var(--ui);letter-spacing:.8px;
+      text-transform:uppercase;color:var(--ink-3)">When they disagree</div>
+    <div class="arb">${(d.arbitration || []).map((a, i) =>
+      `<div><b>${i + 1}. ${esc(a.rule)}</b><span>${esc(a.why)}</span></div>`).join('')}</div>`;
+}
+
+(async function boot(){
+  const d = await fetch('/api/scenarios').then(r => r.json());
+  SYSTEMS = d.systems || [];
+  const opts = SYSTEMS.map(s => `<option value="${esc(s.systemId)}">${esc(s.name)} · ${
+    esc(s.systemId)}</option>`).join('');
+  $('#sys').innerHTML = opts; $('#psys').innerHTML = opts;
+  const pick = SYSTEMS.find(s => s.systemId === 'marketing-copilot') ? 'marketing-copilot'
+             : (SYSTEMS[0] || {}).systemId;
+  $('#sys').value = pick; $('#psys').value = pick;
+  $('#sys').onchange = () => { loadPolicy($('#sys').value); loadCorpus($('#sys').value);
+    loadScope($('#sys').value); };
+  $('#psys').onchange = fillTools;
+  fillTools();
+  await loadPolicy(pick);
+  await loadCorpus(pick);
+  await loadScope(pick);
+  await loadAB();
+  $('#abcase').onchange = showABNote;
+  $('#pcase').innerHTML = PCASES.map((c, i) =>
+    `<option value="${i}">${esc(c.label)}</option>`).join('');
+  $('#pcase').onchange = fillPCase;
+  fillPCase();
+  await loadSupervisors();
+})();
+</script>
+</body>
+</html>

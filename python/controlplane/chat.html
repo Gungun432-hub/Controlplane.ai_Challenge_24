@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Ask your AI assistant</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0F0F17; --surface:#171722; --surface-2:#1E1E2C; --surface-3:#262636;
+  --line:#2E2E40; --line-firm:#43435A;
+  --ink:#EDEDF5; --ink-2:#A8A8BE; --ink-3:#9494B2;
+  --band:#2E1C55; --band-2:#241544; --brand:#B57BFF; --on-brand:#190D30;
+  --brand-wash:rgba(181,123,255,.14);
+  --pass:#00C48C; --repair:#3B9EFF; --escalate:#FFB020; --block:#FF4757;
+  --pass-wash:rgba(0,196,140,.14); --repair-wash:rgba(59,158,255,.14);
+  --escalate-wash:rgba(255,176,32,.14); --block-wash:rgba(255,71,87,.14);
+  --display:'Space Grotesk','Segoe UI',system-ui,sans-serif;
+  --ui:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+:root[data-theme="light"]{
+  --bg:#F6F6FA; --surface:#FFFFFF; --surface-2:#F0F0F6; --surface-3:#E6E6EF;
+  --line:#DCDCE6; --line-firm:#BDBDCE;
+  --ink:#16161F; --ink-2:#55556B; --ink-3:#6B6B84;
+  --brand:#6D28D9; --on-brand:#FFFFFF; --brand-wash:rgba(109,40,217,.10);
+  --pass:#00875A; --repair:#1D6FD0; --escalate:#B26A00; --block:#D62839;
+  --pass-wash:rgba(0,135,90,.12); --repair-wash:rgba(29,111,208,.12);
+  --escalate-wash:rgba(178,106,0,.12); --block-wash:rgba(214,40,57,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.6 var(--ui);
+  display:flex;flex-direction:column;overflow:hidden}
+
+.band{background:linear-gradient(97deg,var(--band),var(--band-2));display:flex;
+  align-items:center;gap:12px;padding:11px 22px;border-bottom:1px solid var(--line);flex:none}
+.mark{font:700 17px/1 var(--display);color:#F2ECFF}
+.mark i{color:var(--brand);font-style:normal}
+.band .who{font-size:12px;color:#C9BEE4;border-left:1px solid rgba(255,255,255,.18);
+  padding-left:12px}
+.band .right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tgl{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.22);color:#E3D9FA;
+  font:500 11px var(--ui);padding:5px 11px;border-radius:999px;cursor:pointer;
+  text-decoration:none;display:inline-block;line-height:1.45}
+.tgl:hover{background:rgba(0,0,0,.45)}
+.build{font:400 10px var(--mono);color:#8B7BB0;border-left:1px solid rgba(255,255,255,.18);
+  padding-left:10px;letter-spacing:.2px}
+select.dept{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.25);color:#F2ECFF;
+  font:500 12px var(--ui);border-radius:999px;padding:5px 12px;cursor:pointer;
+  max-width:16em}
+
+main{flex:1;display:flex;flex-direction:column;max-width:980px;width:100%;margin:0 auto;
+  padding:0 20px;min-height:0}
+#stream{flex:1;overflow-y:auto;padding:26px 0 16px;scroll-behavior:smooth}
+
+.hello{text-align:center;padding:48px 10px 26px;color:var(--ink-2)}
+.hello h1{font:700 26px/1.3 var(--display);color:var(--ink);letter-spacing:-.5px;
+  margin-bottom:8px}
+.hello p{font-size:14px;max-width:46ch;margin:0 auto}
+.chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:22px}
+.chip{background:var(--surface);border:1px solid var(--line);border-radius:999px;
+  padding:8px 14px;font-size:12.5px;color:var(--ink-2);cursor:pointer;text-align:left}
+.chip:hover{border-color:var(--brand);color:var(--ink)}
+.chip b{color:var(--brand);font-weight:600}
+
+.turn{margin-bottom:22px}
+.bubble{max-width:78%;padding:11px 15px;border-radius:14px;font-size:14.5px;line-height:1.6}
+.you{margin-left:auto;background:var(--brand);color:var(--on-brand);border-bottom-right-radius:5px}
+.ai{background:var(--surface);border:1px solid var(--line);border-bottom-left-radius:5px}
+.rowend{display:flex}
+.name{font:600 10.5px var(--ui);letter-spacing:.7px;text-transform:uppercase;
+  color:var(--ink-3);margin-bottom:5px}
+.name.r{text-align:right}
+
+/* what the control plane found, shown to the person who asked */
+.flag{border-radius:11px;padding:13px 15px;margin-top:9px;max-width:78%;
+  border:1px solid var(--line);background:var(--surface-2);font-size:13px;line-height:1.55}
+.flag.escalate{border-color:var(--escalate);background:var(--escalate-wash)}
+.flag.block{border-color:var(--block);background:var(--block-wash)}
+.flag.repair{border-color:var(--repair);background:var(--repair-wash)}
+.flag.held{border-color:var(--escalate);background:var(--escalate-wash)}
+.flag .h{font:700 11px var(--ui);letter-spacing:.9px;text-transform:uppercase;
+  display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.flag.escalate .h,.flag.held .h{color:var(--escalate)}
+.flag.block .h{color:var(--block)} .flag.repair .h{color:var(--repair)}
+.flag ul{margin:8px 0 0 17px} .flag li{margin-bottom:5px;color:var(--ink-2)}
+.flag li b{color:var(--ink)}
+.flag .foot{margin-top:9px;padding-top:8px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--ink-3)}
+/* The verdict, in the register a colleague reads. Everything technical lives
+   behind the toggle underneath it — see plain.py for why this split exists. */
+.plain{max-width:78%;margin-top:9px;border-radius:12px;padding:14px 16px;
+  border:1px solid var(--line);background:var(--surface-2)}
+.plain.pass{border-color:var(--pass);background:var(--pass-wash)}
+.plain.repair{border-color:var(--repair);background:var(--repair-wash)}
+.plain.escalate{border-color:var(--escalate);background:var(--escalate-wash)}
+.plain.block{border-color:var(--block);background:var(--block-wash)}
+.plain .ph{font:600 15.5px/1.35 var(--display);color:var(--ink);letter-spacing:-.2px;
+  display:flex;gap:9px;align-items:flex-start}
+.plain .pb{margin:9px 0 0;padding:0;list-style:none;font-size:13.5px;color:var(--ink-2)}
+.plain .pb li{margin-top:6px;padding-left:15px;position:relative;line-height:1.55}
+.plain .pb li:before{content:'';position:absolute;left:2px;top:8px;width:5px;height:5px;
+  border-radius:50%;background:var(--line-firm)}
+.plain .pd{margin-top:11px;padding:9px 11px;border-radius:8px;background:var(--surface);
+  border:1px solid var(--line);font-size:13px;color:var(--ink)}
+.plain .pd b{font:600 10.5px var(--ui);letter-spacing:.8px;text-transform:uppercase;
+  color:var(--ink-3);display:block;margin-bottom:3px}
+details.more{max-width:78%;margin-top:8px}
+details.more>summary{cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+  font:500 11.5px var(--ui);letter-spacing:.3px;color:var(--ink-3);
+  background:var(--surface);border:1px solid var(--line);border-radius:999px;
+  padding:5px 13px;list-style:none;user-select:none}
+details.more>summary::-webkit-details-marker{display:none}
+details.more>summary:hover{color:var(--ink);border-color:var(--line-firm)}
+details.more>summary:before{content:'▸';font-size:9px}
+details.more[open]>summary:before{content:'▾'}
+details.more[open]>summary{color:var(--ink)}
+details.more .inner{margin-top:4px}
+details.more .inner .ver,details.more .inner .flag,details.more .inner .judge,
+details.more .inner .acct{max-width:100%}
+/* The scroll bar was the one element still painted by the browser's default
+   light theme, so a dark page had a white gutter down the middle of it. */
+*{scrollbar-width:thin;scrollbar-color:var(--line-firm) transparent}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line-firm);border-radius:999px;
+  border:3px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--ink-3)}
+::-webkit-scrollbar-corner{background:transparent}
+
+/* One tab per department, and each keeps its own transcript.
+   A support agent scrolling past an IT operations thread is not a demo of
+   anything; worse, it suggests the five assistants share a conversation, which
+   is the opposite of what the registry says about them. */
+.tabs{display:flex;gap:4px;overflow-x:auto;padding:9px 0 0;flex:none}
+.tab{display:flex;align-items:center;gap:8px;white-space:nowrap;cursor:pointer;
+  background:transparent;border:1px solid transparent;border-bottom:none;
+  border-radius:9px 9px 0 0;padding:8px 14px;color:var(--ink-3);
+  font:500 12.5px var(--ui)}
+.tab:hover{color:var(--ink-2);background:var(--surface-2)}
+.tab.on{background:var(--surface);border-color:var(--line);color:var(--ink);
+  font-weight:600}
+.tab .dot{width:7px;height:7px;border-radius:50%;background:var(--line-firm);flex:none}
+.tab.on .dot{background:var(--brand)}
+.tab .n{font:500 10px var(--mono);color:var(--ink-3);background:var(--surface-3);
+  border-radius:999px;padding:1px 6px}
+.tab.on .n{color:var(--brand)}
+.tabline{height:1px;background:var(--line);margin-bottom:2px;flex:none}
+/* Which provider actually produced these bytes. The control plane's whole
+   argument is that it checks the AI's answer — so the page has to be able to
+   say, on the turn itself, that an AI answered. */
+.by{display:inline-flex;align-items:center;gap:5px;font:600 9.5px var(--mono);
+  letter-spacing:.4px;text-transform:uppercase;border-radius:999px;
+  padding:2px 8px;border:1px solid var(--line-firm);color:var(--ink-3)}
+.by.live{border-color:var(--pass);color:var(--pass);background:var(--pass-wash)}
+.by .sp{width:6px;height:6px;border-radius:50%;background:currentColor}
+.fellback{max-width:78%;margin-top:9px;border-radius:11px;padding:11px 14px;
+  border:1px solid var(--escalate);background:var(--escalate-wash);font-size:12.5px;
+  color:var(--ink-2);line-height:1.55}
+.fellback b{color:var(--escalate);display:block;font:700 10.5px var(--ui);
+  letter-spacing:.9px;text-transform:uppercase;margin-bottom:4px}
+.fellback code{font:500 11px var(--mono);color:var(--ink)}
+.tick{font-size:12px;color:var(--pass);margin-top:7px;display:flex;align-items:center;gap:7px}
+.tick .src{color:var(--ink-3);font:400 11.5px var(--mono)}
+
+.ver{margin-top:9px;max-width:78%;border:1px solid var(--line);border-radius:10px;
+  padding:9px 13px;background:var(--surface-2);font-size:12.5px;line-height:1.5}
+.ver.pass{border-color:var(--pass);background:var(--pass-wash)}
+.ver.escalate{border-color:var(--escalate);background:var(--escalate-wash)}
+.ver.block{border-color:var(--block);background:var(--block-wash)}
+.ver .vh b{font-weight:700;margin-right:6px}
+.ver.pass .vh b{color:var(--pass)}
+.ver.escalate .vh b{color:var(--escalate)}
+.ver.block .vh b{color:var(--block)}
+.ver .vs{margin-top:5px;font:400 11px var(--mono);color:var(--ink-3)}
+.ver .vs .src{opacity:.85}
+.withheld{margin-top:9px;max-width:78%;border:1px dashed var(--line-firm);
+  border-radius:10px;padding:11px 13px;background:var(--surface-2);
+  font-size:12.5px;color:var(--ink-3);line-height:1.5}
+.withheld b{color:var(--ink-2)}
+
+.cite{display:inline-block;font:500 10.5px var(--mono);background:var(--surface-2);
+  border:1px solid var(--line);border-radius:5px;padding:1px 6px;margin:3px 4px 0 0;
+  color:var(--ink-3)}
+
+/* the judge's own panel: per-claim verdicts from the second model */
+.judge{margin-top:9px;max-width:78%;border:1px solid var(--line);border-radius:11px;
+  background:var(--surface-2);font-size:12.5px;overflow:hidden}
+.judge .jh{display:flex;align-items:center;gap:8px;padding:9px 13px;
+  border-bottom:1px solid var(--line);font:600 11px var(--ui);letter-spacing:.7px;
+  text-transform:uppercase;color:var(--ink-2)}
+.judge .jh b{color:var(--brand);font-weight:700}
+.judge .jh .sp{margin-left:auto;font:400 10.5px var(--mono);color:var(--ink-3);
+  text-transform:none;letter-spacing:0}
+.judge ol{margin:0;padding:8px 13px 10px 30px}
+.judge li{margin-bottom:6px;color:var(--ink-2);line-height:1.5}
+.v{display:inline-block;font:600 9.5px var(--ui);letter-spacing:.6px;text-transform:uppercase;
+  border-radius:4px;padding:1.5px 6px;margin-right:6px;vertical-align:1px}
+.v.supported{background:var(--pass-wash);color:var(--pass)}
+.v.uncovered{background:var(--escalate-wash);color:var(--escalate)}
+.v.contradicted{background:var(--block-wash);color:var(--block)}
+.v.not_a_claim{background:var(--surface-3);color:var(--ink-3)}
+.judge .omit{margin:0 13px 11px;padding:9px 11px;border-left:3px solid var(--block);
+  background:var(--block-wash);border-radius:0 7px 7px 0;color:var(--ink);
+  font-size:12.5px;line-height:1.5}
+.judge .omit i{display:block;font-style:normal;font:600 10px var(--ui);
+  letter-spacing:.7px;text-transform:uppercase;color:var(--block);margin-bottom:4px}
+
+/* the seam back to the control plane */
+.acct{margin-top:8px;max-width:78%;display:flex;align-items:center;gap:8px;
+  flex-wrap:wrap;font:400 11px var(--mono);color:var(--ink-3)}
+.acct b{color:var(--ink-2);font-weight:500}
+.acct a{color:var(--brand);text-decoration:none;border-bottom:1px dotted var(--brand)}
+
+.redir{border:1px solid var(--repair);background:var(--repair-wash);border-radius:11px;
+  padding:13px 15px;margin-top:9px;max-width:78%;font-size:13px;line-height:1.55}
+.redir .h{font:700 11px var(--ui);letter-spacing:.9px;text-transform:uppercase;
+  color:var(--repair);margin-bottom:7px}
+.redir.harm{border-color:var(--block);background:var(--block-wash)}
+.redir.harm .h{color:var(--block)}
+.redir .mt{margin-top:8px;font:400 11.5px var(--mono);color:var(--ink-3)}
+.redir .mt code{background:var(--surface-3);border-radius:4px;padding:1px 6px;
+  color:var(--ink-2)}
+.redir.cap{border-color:var(--escalate);background:var(--escalate-wash)}
+.redir.cap .h{color:var(--escalate)}
+.redir .foot{margin-top:9px;padding-top:8px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--ink-3)}
+.redir .go{margin-top:9px}
+.redir button{background:var(--repair);color:#fff;border:0;border-radius:8px;
+  font:600 12px var(--ui);padding:7px 13px;cursor:pointer}
+
+.composer{flex:none;padding:12px 0 18px}
+.box{display:flex;gap:9px;background:var(--surface);border:1px solid var(--line-firm);
+  border-radius:14px;padding:9px 9px 9px 15px;align-items:flex-end}
+.box:focus-within{border-color:var(--brand)}
+textarea{flex:1;background:none;border:0;color:var(--ink);font:400 14.5px/1.55 var(--ui);
+  resize:none;max-height:140px;outline:none;padding:5px 0}
+button.send{background:var(--brand);color:var(--on-brand);border:0;border-radius:10px;
+  font:600 13px var(--ui);padding:9px 17px;cursor:pointer}
+button.send:disabled{opacity:.45;cursor:default}
+.note{text-align:center;font-size:11.5px;color:var(--ink-3);margin-top:9px}
+.note b{color:var(--ink-2);font-weight:500}
+@media(max-width:620px){
+  .bubble,.flag{max-width:92%}
+  .band{padding:10px 14px} main{padding:0 14px}
+}
+</style>
+</head>
+<body>
+
+<div class="band">
+  <div class="mark">AI <i>USER</i></div>
+  <div class="who" id="whoami">Employee workspace</div>
+  <button class="tgl" id="rename" title="Change who is asking">edit</button>
+  <span class="build" id="build" title="Which code is serving this page"></span>
+  <div class="right">
+    <a class="tgl" href="/" title="The governance side of the same system">Control plane →</a>
+    <button class="tgl" id="theme">Light</button>
+  </div>
+</div>
+
+<main>
+  <div class="tabs" id="tabs"></div>
+  <div class="tabline"></div>
+  <div id="stream">
+    <div id="turns"></div>
+    <div class="hello" id="hello">
+      <h1>Ask your department's AI assistant</h1>
+      <p>Every question and every answer passes through ControlPlane before you
+         see it. When something is wrong with an answer, you will be told what
+         and why — not quietly given it anyway.</p>
+      <div class="chips" id="chips"></div>
+    </div>
+  </div>
+
+  <div class="composer">
+    <div class="box">
+      <textarea id="q" rows="1" placeholder="Ask a question…"></textarea>
+      <button class="send" id="send">Send</button>
+    </div>
+    <div class="note">Checked on the way in and on the way out ·
+      <b id="provider">provider —</b></div>
+  </div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function applyTheme(t){ document.documentElement.setAttribute('data-theme', t);
+  $('#theme').textContent = t === 'dark' ? 'Light' : 'Dark';
+  try{ localStorage.setItem('cp-theme', t); }catch(e){} }
+let th='dark'; try{ th = localStorage.getItem('cp-theme') || 'dark'; }catch(e){}
+applyTheme(th);
+$('#theme').onclick = () => applyTheme(
+  document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+
+/* A transcript is somebody's words, so reading one needs the same token a
+   control does. In this prototype that is a shared secret held by the page, not
+   authenticated identity — the developer page says so plainly. */
+function readHeaders(){
+  return {'X-ControlPlane-Token': (window.CP_TOKEN || 'operator-dev-token')};
+}
+
+/* One session per browser tab, so a refresh keeps the conversation. */
+/* A named session in the URL wins, so a demo — or a browser driving this page
+   to check it renders — can open a transcript that already exists.
+   BASE is the person's workspace; each department hangs its own transcript off
+   it, so switching tabs switches conversation rather than filtering one. */
+let BASE = new URLSearchParams(location.search).get('session') || '';
+try{
+  BASE = BASE || sessionStorage.getItem('cp-chat') || '';
+  if (!BASE){ BASE = 's_' + Math.random().toString(36).slice(2, 10);
+    sessionStorage.setItem('cp-chat', BASE); }
+}catch(e){ BASE = 's_' + Math.random().toString(36).slice(2, 10); }
+
+/* The session actually asked about, which is the workspace plus the department. */
+const sessionFor = sid => `${BASE}__${sid}`;
+let SESSION = BASE;
+
+/* No hardcoded departments, users or prompts here.
+   The control-plane pages show a system's registered NAME ("Customer Support
+   Copilot") and this page used to show its DEPARTMENT ("Customer Operations"),
+   so the same five systems appeared under ten different labels and looked like
+   two unrelated products. Everything below now comes from /api/scenarios, which
+   reads the same registry rows the console, portfolio and advisor read. One
+   source of truth, and a rename lands on every page at once. */
+let SYSTEMS = [], current = null, busy = false;
+let setWho = () => {};
+const onDepartment = () => { setWho(); renderChips(); };
+let WHO = '';                       /* who is asking — editable, see #rename */
+
+const sysOf = sid => SYSTEMS.find(s => s.systemId === sid) || {};
+function userFor(sid){
+  const s = sysOf(sid);
+  return [WHO || s.endUser || 'Employee', s.department || ''];
+}
+
+/* How many turns this department's transcript already holds, so a tab can say
+   so without the page having to fetch five transcripts on every poll. */
+const TURNS = {};
+
+function renderTabs(){
+  $('#tabs').innerHTML = SYSTEMS.map(sys => {
+    const n = TURNS[sys.systemId] || 0;
+    return `<button class="tab ${sys.systemId === current ? 'on' : ''}"
+      data-sys="${esc(sys.systemId)}" title="${esc(sys.department || '')}">
+      <span class="dot"></span>${esc(sys.name)}
+      ${n ? `<span class="n">${n}</span>` : ''}</button>`;
+  }).join('');
+  $('#tabs').querySelectorAll('.tab').forEach(el =>
+    el.onclick = () => switchTo(el.dataset.sys));
+}
+
+async function switchTo(sid){
+  if (sid === current) return;
+  current = sid;
+  SESSION = sessionFor(sid);
+  try{ history.replaceState(null, '', '?system=' + encodeURIComponent(sid)); }catch(e){}
+  onDepartment();
+  renderTabs();
+  $('#turns').innerHTML = '';
+  await refresh();
+  $('#q').focus();
+}
+
+function renderChips(){
+  const list = (sysOf(current).sampleQuestions) || [];
+  $('#chips').innerHTML = list.map(o =>
+    `<button class="chip" data-q="${esc(o.q)}">${esc(o.q)}<br><b>${esc(o.why)}</b></button>`).join('');
+  $('#chips').querySelectorAll('.chip').forEach(el =>
+    el.onclick = () => { $('#q').value = el.dataset.q; send(); });
+}
+
+/* ---------------------------------------------------------------- render --- */
+/* Two separate facts, never one.
+   This line used to read "✓ grounded in 1 source" — in green, with a tick —
+   directly above a panel saying "0 of 2 claims supported by 1 source(s)". Both
+   were true. Together they were a lie, because the tick was counting CITATIONS
+   and the panel was counting VERIFICATION, and finding a source is not the same
+   act as checking a claim against it. */
+const VSTATE = {
+  verified:          ['✓', 'pass',     'Checked'],
+  partly_verified:   ['◑', 'escalate', 'Partly checked'],
+  unverified:        ['?', 'escalate', 'Not confirmed'],
+  contradicted:      ['✗', 'block',    'Contradicted'],
+  nothing_asserted:  ['✓', 'pass',     'Nothing asserted'],
+  not_checked:       ['—', 'muted',    'Not checked'],
+};
+
+function evidenceLine(o){
+  const v = o.verification || {};
+  if (!v.status) return '';
+  const ids = ((o.retrieval || {}).chunkIds) || [];
+  const [icon, tone, title] = VSTATE[v.status] || VSTATE.not_checked;
+  const cited = v.sourcesCited || 0;
+  return `<div class="ver ${esc(tone)}">
+    <div class="vh"><b>${icon} ${esc(title)}</b> ${esc(v.label)}</div>
+    <div class="vs">${cited
+      ? `${cited} source${cited > 1 ? 's' : ''} cited
+         <span class="src">${ids.slice(0, cited).map(esc).join(' · ')}</span>`
+      : 'no source was cited'}${
+      v.secondOpinion ? ' · a second model read it too' : ''}</div></div>`;
+}
+
+function findingLines(o){
+  const out = [];
+  (o.findings || []).forEach(f => {
+    const ev = (f.evidence || [])[0];
+    if (!ev) return;
+    const label = {grounding: 'Accuracy', privacy: 'Privacy', fairness: 'Fairness',
+                   cost: 'Cost', citation: 'Sources',
+                   purpose: 'Completeness', adjudication: 'Second opinion'}[f.detectorId]
+                   || f.detectorId;
+    out.push(`<li><b>${esc(label)}:</b> ${esc(ev)}</li>`);
+  });
+  const cap = o.capability || {};
+  if (cap.capabilityMismatch)
+    out.push(`<li><b>Action:</b> the assistant declared '${esc(cap.declaredAction)}' but the
+      tool it chose can ${esc(cap.effectiveAction)} — so it was not allowed to act.</li>`);
+  const ev = o.evidence || {};
+  if (ev.tier === 'parametric')
+    out.push(`<li><b>Evidence:</b> ${esc(ev.detail)}</li>`);
+  return out;
+}
+
+/* What the second model said. Shown to the person reading the answer, because
+   they are the one who has to decide whether to act on it. */
+function judgePanel(o){
+  const a = o.adjudication || {};
+  if (!a.ran) {
+    if (a.error) return `<div class="judge"><div class="jh">
+      <b>Second opinion</b> · could not be reached
+      <span class="sp">${esc(a.error)}</span></div>
+      <ol><li>This answer was not independently checked, so it has been held
+      above the pass line rather than cleared.</li></ol></div>`;
+    return '';
+  }
+  const vs = (a.verdicts || []).filter(v => v.needsEvidence);
+  const suff = a.sufficiency || {};
+  const rows = vs.map(v => `<li><span class="v ${esc(v.verdict)}">${esc(v.verdict)}</span>
+      ${esc(v.claim)}${v.downgradedFrom
+        ? ` <b>(downgraded from ${esc(v.downgradedFrom)} — the judge was not confident
+            enough to call it wrong)</b>` : ''}</li>`).join('');
+  const omit = suff.verdict === 'omits_condition' && suff.omitted
+    ? `<div class="omit"><i>Your own policy says something this answer left out</i>
+        “${esc(suff.omitted)}”</div>` : '';
+  const diff = suff.verdict === 'answers_different_question'
+    ? `<div class="omit"><i>This answers a different question</i>
+        ${esc(suff.note || 'what you asked for is not in the answer')}</div>` : '';
+  return `<div class="judge">
+    <div class="jh"><b>Second opinion</b> · ${vs.length} claim${vs.length === 1 ? '' : 's'}
+      checked against the sources
+      <span class="sp">${esc(a.model || 'judge')} · ${esc(a.latencyMs)} ms${
+        a.tokens ? ' · ' + esc(a.tokens) + ' tokens' : ''}</span></div>
+    ${rows ? `<ol>${rows}</ol>` : ''}${omit}${diff}</div>`;
+}
+
+/* This question is now part of the control plane's cost and exposure. Saying so
+   here, with a link, is what makes the two pages one system. */
+/* Loud, and above the fold. A rate-limited model that quietly falls through to
+   the deterministic provider used to put canned text in the AI's own bubble
+   with nothing on screen to say so — which reads, correctly, as "the AI is
+   broken". It was our honesty that was broken. */
+function fellBack(o){
+  const b = o.answeredBy || {};
+  if (!b.fellBackFrom) return '';
+  return `<div class="fellback"><b>⚠ The AI did not answer this one</b>
+    ${esc(b.fellBackFrom === 'gemini' ? 'Gemini' : b.fellBackFrom)} could not be
+    reached, so the deterministic backup produced this text instead. It was still
+    governed exactly the same way — but do not read it as the model's answer.
+    <div style="margin-top:5px">reason: <code>${esc(b.fallbackCode || 'unknown')}</code>
+    ${b.fallbackDetail ? ' · ' + esc(b.fallbackDetail) : ''}</div></div>`;
+}
+
+function answeredBy(o){
+  const b = o.answeredBy || {};
+  if (!b.provider) return '';
+  if (b.fellBackFrom)
+    return `<span class="by" title="${esc(b.fallbackDetail || '')}">
+      <span class="sp"></span>backup · ${esc(b.fellBackFrom)} unreachable</span>`;
+  if (b.provider === 'gemini')
+    return `<span class="by live" title="answered by the live model, then checked here">
+      <span class="sp"></span>Gemini${b.model ? ' · ' + esc(b.model) : ''}${
+        b.latencyMs ? ' · ' + esc(Math.round(b.latencyMs)) + ' ms' : ''}</span>`;
+  return `<span class="by"><span class="sp"></span>deterministic provider</span>`;
+}
+
+function accounting(o){
+  const a = o.accounting; if (!a) return '';
+  const rid = o.requestId || '';
+  return `<div class="acct">${answeredBy(o)} counted in <b>${esc(a.system)}</b>
+    · exposure <b>+${esc(a.price)}</b>
+    · model <b>₹${esc((a.spendInr || 0).toFixed(4))}</b>${
+      a.oversightCostInr ? ` · oversight <b>₹${esc(a.oversightCostInr)}</b>
+        (${esc(a.reviewMinutes)} reviewer min)` : ''}${
+      a.ledgerIndex != null ? ` · ledger <b>#${esc(a.ledgerIndex)}</b>` : ''}
+    · <a href="/console?focus=${esc(rid)}" target="_blank">open the receipt on the
+      control plane →</a>
+    </div>`;
+}
+
+/* The verdict, as plain.py wrote it. One function, one wording, and the page
+   does not get to paraphrase it — that drift is exactly what put the wording in
+   Python in the first place. */
+const PICON = {pass: '\u2713', repair: '\u270E', escalate: '\u26A0', block: '\u26D4',
+               refused: '\u26D4', redirected: '\u21AA', held: '\u23F8',
+               paused: '\u23F8', blocked: '\u26D4', declined: '\u2713'};
+
+function plainCard(o){
+  const p = o.plain || {};
+  if (!p.headline) return '';
+  const tone = ['pass', 'repair', 'escalate', 'block'].includes(p.register)
+    ? p.register : '';
+  const because = (p.because || []).map(b => `<li>${esc(b)}</li>`).join('');
+  return `<div class="plain ${esc(tone)}">
+    <div class="ph"><span>${esc(PICON[p.register] || '\u2139')}</span>
+      <span>${esc(p.headline)}</span></div>
+    ${because ? `<ul class="pb">${because}</ul>` : ''}
+    ${p.doThis ? `<div class="pd"><b>What to do</b>${esc(p.doThis)}</div>` : ''}
+  </div>`;
+}
+
+/* Nothing is hidden, only folded. Auditors, owners and a jury want the findings,
+   the evidence grade, the second opinion and the receipt id — and a colleague in
+   Finance wants one sentence. Both are true at once, so both are here. */
+function moreCard(inner, label){
+  if (!inner.trim()) return '';
+  return `<details class="more"><summary>${esc(label)}</summary>
+    <div class="inner">${inner}</div></details>`;
+}
+
+const HEAD = {
+  block:    ['⛔', 'This answer was blocked before it reached you'],
+  escalate: ['⚠️', 'Check this before you act on it'],
+  repair:   ['✏️', 'This answer was edited before you saw it'],
+};
+
+function turnHtml(t){
+  const o = t.outcome, who = userFor(t.systemId);
+  let html = `<div class="turn">
+    <div class="name r">${esc(who[0])}</div>
+    <div class="rowend"><div class="bubble you">${esc(t.question)}</div></div>`;
+
+  /* Every outcome gets the same shape: the verdict in plain words, then the
+     detail folded underneath it. The refusals and redirects used to be the one
+     place the page wrote its own wording, and they are the outcomes a colleague
+     is most likely to misread. */
+  const nonModel = ['refused_harmful', 'out_of_purpose', 'budget_exhausted',
+                    'capacity_exhausted', 'redirected', 'held', 'refused',
+                    'blocked'].includes(o.status);
+  let deep = '';
+
+  if (o.status === 'refused_harmful'){
+    const h = o.harm || {};
+    const f = (h.findings || [])[0] || {};
+    deep += `<div class="redir harm">
+      <div class="h">⛔ This assistant will not help with that</div>
+      ${esc(o.detail || '')}
+      ${f.matched ? `<div class="mt">what it matched: <code>${esc(f.matched)}</code>
+        · ${esc(f.family || '')}</div>` : ''}
+      <div class="foot">Stopped before the model, in ${esc(h.latencyMs)} ms.
+        No answer was generated, nothing was sent to the provider, and nothing was
+        spent — the cheapest governance is the kind that runs before you pay for
+        anything. This was recorded for your system's owner.</div></div>`;
+  } else if (o.status === 'out_of_purpose'){
+    const pc = o.purposeCheck || {};
+    deep += `<div class="redir">
+      <div class="h">\u21AA Outside this assistant's declared purpose</div>
+      ${esc(o.detail || '')}
+      ${pc.matched ? `<div class="mt">what it matched: <code>${esc(pc.matched)}</code>
+        \u00b7 ${esc(pc.family || '')}</div>` : ''}
+      <div class="foot">Stopped before the model, in ${esc(pc.latencyMs)} ms. No
+        model was called and nothing was spent. This did not go to a human
+        reviewer either \u2014 being asked a personal question is a routing
+        mistake, not a governance incident. Your system's owner sees the count.</div>
+      </div>`;
+  } else if (o.status === 'budget_exhausted'){
+    const b = o.spend || {};
+    deep += `<div class="redir cap">
+      <div class="h">⏸ ${esc(b.name || 'This assistant')} is over its monthly
+        budget</div>
+      It has spent <b>₹${esc((b.usedInr || 0).toLocaleString('en-IN'))} of
+      ₹${esc((b.budgetInr || 0).toLocaleString('en-IN'))}</b>
+      (${esc(b.usedPct)}%) this month. New questions are not accepted until
+      ${esc(b.owner || 'the owner')} raises it.
+      <div class="foot">Nothing was sent to the model and nothing was spent. On this
+        system the money is a hard cap, not a warning — a red card that still
+        accepted the next question would be a dashboard, not a control.</div></div>`;
+  } else if (o.status === 'capacity_exhausted'){
+    const c = o.capacity || {};
+    deep += `<div class="redir cap">
+      <div class="h">⏸ ${esc(c.name || 'This assistant')} has no reviewer capacity
+        left this week</div>
+      It has used <b>${esc(c.usedMinutes)} of ${esc(c.budgetMinutes)} reviewer
+      minutes</b> (${esc(c.usedPct)}%) in the last 7 days. New questions are not
+      being accepted until ${esc(c.owner || 'the owner')} raises the budget.
+      <div class="foot">Nothing was sent to the model and nothing was spent. You
+        run out of reviewers long before you run out of tokens, so reviewer
+        capacity — not spend — is what this system caps.</div></div>`;
+  } else if (o.status === 'redirected'){
+    const sc = o.scope || {};
+    deep += `<div class="redir">
+      <div class="h">↪ Not this assistant's subject — nothing was spent</div>
+      ${esc(sc.reason || 'this question belongs to another assistant')}
+      ${sc.bestOtherName ? `<div class="go">
+        <button data-dept="${esc(sc.bestOther)}">Ask ${esc(sc.bestOtherName)} instead</button>
+        </div>` : ''}
+      <div class="foot">No model was called, no tokens were spent, and this did not
+        go to a human reviewer — being asked the wrong question is a routing
+        mistake, not a governance incident.</div></div>`;
+  } else if (o.status === 'held' || o.status === 'refused'){
+    const reasons = (o.ingress?.reasons || []).map(r => `<li>${esc(r)}</li>`).join('');
+    deep += `<div class="flag held">
+      <div class="h">⏸ Held for review — no answer was generated</div>
+      Your question was stopped before it reached the AI, so nothing was sent to
+      the model and nothing was spent.
+      <ul>${reasons}</ul>
+      <div class="foot">A reviewer in your organisation will pass or block it.
+        This page updates on its own when they do.</div></div>`;
+  } else if (o.status === 'blocked'){
+    deep += `<div class="flag block">
+      <div class="h">⛔ Blocked by a reviewer</div>
+      ${esc(o.reviewedBy || 'A reviewer')} reviewed this question and did not release it.
+      ${o.reviewNote ? `<div class="foot">“${esc(o.reviewNote)}”</div>` : ''}</div>`;
+  }
+
+  if (nonModel){
+    html += plainCard(o) + moreCard(deep, 'Show exactly what was checked');
+  } else if (o.decision){
+    const action = o.decision.action;
+    const text = o.answer || '';
+    if (text){
+      html += `<div class="name">${esc((SYSTEMS.find(s => s.systemId === t.systemId)
+        || {}).name || 'Assistant')}</div>
+        <div class="rowend"><div class="bubble ai">${esc(text)}</div></div>`;
+    }
+    html += fellBack(o);
+    /* A block means the person who asked sees nothing. The candidate text is
+       kept for the developer, on the control plane, where deciding what to do
+       with it is somebody's job. This page never renders it — a screen that
+       says "blocked before it reached you" above the answer it just showed you
+       is worse than no control at all. */
+    if (action === 'block' && o.decision.developerDraft){
+      html += `<div class="withheld"><b>The drafted answer was withheld.</b>
+        It was returned to the team that owns this assistant as a draft, and is
+        on the control plane with the receipt. You are not being shown it here,
+        because it was not cleared for you.</div>`;
+    }
+
+    html += plainCard(o);
+
+    if (action === 'pass'){
+      /* Declining is the system working, not a warning to dress up. */
+      let detail = o.decision.abstention
+        ? `<div class="ver pass"><div class="vh">
+            <b>✓ Declined safely</b> ${esc(o.decision.reason)}</div>
+            <div class="vs">nothing was asserted, so there is nothing to
+            verify</div></div>`
+        : evidenceLine(o);
+      html += moreCard(detail + judgePanel(o) + accounting(o), 'Show the checks');
+    } else {
+      const [icon, title] = HEAD[action] || ['⚠️', 'Flagged'];
+      const lines = findingLines(o);
+      /* A refusal on capability or governance was never scored. Printing
+         "Risk price 0" next to it reads as "we found no risk", which is the
+         opposite of what happened. */
+      const scored = o.decision.scored !== false;
+      let detail = `<div class="flag ${esc(action)}">
+        <div class="h">${icon} ${esc(title)}</div>
+        ${esc(o.decision.reason)}
+        ${lines.length ? `<ul>${lines.join('')}</ul>` : ''}
+        <div class="foot">${scored
+            ? `Risk price ${o.risk?.price ?? '—'}`
+            : `Refused on ${esc((o.decision.detail || {}).refusedOn || 'policy')} —
+               not scored`} ·
+          ${esc((o.evidence || {}).label || 'no evidence grade')} ·
+          receipt ${esc(o.requestId || '')}</div></div>`;
+      if (action !== 'block') detail += evidenceLine(o);
+      detail += judgePanel(o) + accounting(o);
+      html += moreCard(detail, 'Show the checks and the receipt');
+    }
+  }
+  return html + '</div>';
+}
+
+async function refresh(){
+  let d;
+  try{ d = await fetch('/api/chat/' + SESSION, {headers: readHeaders()}).then(r => r.json()); }
+  catch(e){ return; }
+  const turns = d.turns || [];
+  const box = $('#turns'), hello = $('#hello');
+
+  /* Each department keeps its own transcript, so an empty one is an ordinary
+     state now rather than "nothing has loaded yet" — it has to put the welcome
+     panel back rather than leaving the previous tab's turns on screen. */
+  TURNS[current] = turns.length;
+  renderTabs();
+  if (!turns.length){
+    box.dataset.sig = ''; box.innerHTML = '';
+    if (hello) hello.style.display = '';
+    return;
+  }
+
+  /* Render into #turns, never into #stream: #hello lives in #stream and
+     replacing the whole container removed it, after which every later refresh
+     threw on the missing node and the page silently stopped updating. */
+  if (hello) hello.style.display = 'none';
+  const html = turns.map(turnHtml).join('');
+  if (box.dataset.sig === html) return;        // nothing changed; don't fight the scroll
+  box.dataset.sig = html;
+  box.innerHTML = html;
+  box.querySelectorAll('.redir button[data-dept]').forEach(b => b.onclick = () => {
+    switchTo(b.dataset.dept);
+  });
+  $('#stream').scrollTop = $('#stream').scrollHeight;
+}
+
+/* ------------------------------------------------------------------ send --- */
+async function send(){
+  const q = $('#q').value.trim();
+  if (!q || busy) return;
+  busy = true; $('#send').disabled = true;
+  $('#q').value = '';
+  const who = userFor(current);
+  try{
+    const r = await fetch('/api/ask', {method:'POST',
+      headers:{'content-type':'application/json',
+               'X-ControlPlane-Actor': who[0],
+               'X-ControlPlane-Token': (window.CP_TOKEN || 'operator-dev-token')},
+      body: JSON.stringify({systemId: current, message: q,
+                            sessionId: SESSION, user: who[0]})});
+    if (!r.ok){
+      const hello = $('#hello'); if (hello) hello.style.display = 'none';
+      $('#turns').insertAdjacentHTML('beforeend',
+        `<div class="turn"><div class="flag block"><div class="h">Request failed</div>
+         HTTP ${r.status}. ${esc(await r.text())}</div></div>`);
+      return;
+    }
+    await refresh();
+  } finally { busy = false; $('#send').disabled = false; $('#q').focus(); }
+}
+
+$('#send').onclick = send;
+$('#q').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send(); }
+});
+$('#q').addEventListener('input', () => {
+  $('#q').style.height = 'auto';
+  $('#q').style.height = Math.min(140, $('#q').scrollHeight) + 'px';
+});
+
+(async function boot(){
+  const d = await fetch('/api/scenarios').then(r => r.json());
+  SYSTEMS = d.systems || [];
+  /* The registered system NAME, exactly as the portfolio, console, review page
+     and advisor show it — now one tab each, rendered once `current` is known. */
+  const stamp = d.buildStamp || {};
+  const missing = Object.entries(stamp.hasModules || {})
+    .filter(([, present]) => !present).map(([name]) => name);
+  $('#build').textContent = missing.length
+    ? `${stamp.build} — MISSING ${missing.join(', ')}`
+    : `${stamp.build} · ${stamp.fingerprint}`;
+  $('#build').style.color = missing.length ? 'var(--block)' : '';
+  $('#build').title = 'serving from ' + (stamp.servingFrom || '?');
+
+  const params = new URLSearchParams(location.search);
+  current = (SYSTEMS.find(s => s.systemId === params.get('system')) || SYSTEMS[0] || {}).systemId;
+  SESSION = sessionFor(current);
+  try{ WHO = localStorage.getItem('cp-who') || ''; }catch(e){}
+
+  setWho = () => {
+    const w = userFor(current), s = sysOf(current);
+    $('#whoami').textContent = `${w[0]} · ${w[1]}`;
+    const h = document.querySelector('.hello h1');
+    if (h) h.textContent = `Ask ${s.name || 'your assistant'}`;
+    const t = document.querySelector('.hello p');
+    if (t) t.textContent = `${s.department || 'Your department'} · every question and `
+      + `every answer passes through ControlPlane before you see it. When something `
+      + `is wrong with an answer, you will be told what and why — not quietly given `
+      + `it anyway. This tab is ${s.name || 'this assistant'}'s conversation only.`;
+    $('#q').placeholder = `Ask ${s.name || 'your assistant'}…`;
+  };
+  onDepartment(); renderTabs();
+  /* Names stay editable on the page, never frozen in a source file: in the room
+     we may want to be somebody else. Scoped to this browser only. */
+  $('#rename').onclick = () => {
+    const name = window.prompt('Who is asking?', userFor(current)[0]);
+    if (name == null) return;
+    WHO = name.trim().slice(0, 60);
+    try{ WHO ? localStorage.setItem('cp-who', WHO)
+              : localStorage.removeItem('cp-who'); }catch(e){}
+    setWho();
+  };
+
+  try{
+    const h = await fetch('/health').then(r => r.json());
+    $('#provider').textContent = h.live ? h.provider + ' (live)' : h.provider + ' model';
+  }catch(e){}
+
+  await refresh();
+  // A held question that a reviewer releases should appear here without the
+  // person having to ask again.
+  setInterval(refresh, 4000);
+  $('#q').focus();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ControlPlane — advisories</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0F0F17; --surface:#171722; --surface-2:#1E1E2C; --surface-3:#262636;
+  --line:#2E2E40; --line-firm:#43435A;
+  --ink:#EDEDF5; --ink-2:#A8A8BE; --ink-3:#9494B2;
+  --band:#2E1C55; --band-2:#241544; --brand:#B57BFF; --on-brand:#190D30;
+  --brand-on-band:#B57BFF; --brand-wash:rgba(181,123,255,.14);
+  --pass:#00C48C; --repair:#3B9EFF; --escalate:#FFB020; --block:#FF4757;
+  --pass-wash:rgba(0,196,140,.14); --repair-wash:rgba(59,158,255,.14);
+  --escalate-wash:rgba(255,176,32,.14); --block-wash:rgba(255,71,87,.14);
+  --unknown:#7C7C96; --unknown-wash:rgba(124,124,150,.16);
+  --display:'Space Grotesk','Segoe UI',system-ui,sans-serif;
+  --ui:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+:root[data-theme="light"]{
+  --bg:#F6F6FA; --surface:#FFFFFF; --surface-2:#F0F0F6; --surface-3:#E6E6EF;
+  --line:#DCDCE6; --line-firm:#BDBDCE;
+  --ink:#16161F; --ink-2:#55556B; --ink-3:#6B6B84;
+  --brand:#6D28D9; --on-brand:#FFFFFF; --brand-wash:rgba(109,40,217,.10);
+  --pass:#00875A; --repair:#1D6FD0; --escalate:#B26A00; --block:#D62839;
+  --pass-wash:rgba(0,135,90,.12); --repair-wash:rgba(29,111,208,.12);
+  --escalate-wash:rgba(178,106,0,.12); --block-wash:rgba(214,40,57,.12);
+  --unknown:#6B6B84; --unknown-wash:rgba(107,107,132,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:400 14px/1.55 var(--ui);min-height:100vh;overflow-x:hidden}
+
+.band{background:linear-gradient(97deg,var(--band),var(--band-2));display:flex;align-items:center;
+  gap:10px 14px;padding:11px 26px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.mark{font:700 19px/1 var(--display);color:#F2ECFF;letter-spacing:-.2px}
+.mark i{color:var(--brand-on-band);font-style:normal}
+.tagline{font-size:11.5px;color:#C9BEE4;border-left:1px solid rgba(255,255,255,.18);padding-left:14px}
+.band .right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font:500 11px var(--ui);border:1px solid rgba(255,255,255,.22);border-radius:999px;
+  padding:4px 11px;color:#E3D9FA;background:rgba(0,0,0,.18);white-space:nowrap}
+.tgl{background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.22);color:#E3D9FA;
+  font:500 11px var(--ui);padding:5px 11px;border-radius:999px;cursor:pointer;
+  text-decoration:none;display:inline-block;line-height:1.45}
+.tgl:hover{background:rgba(0,0,0,.45)}
+.tgl.on{background:var(--brand);color:var(--on-brand);border-color:transparent;font-weight:600}
+
+main{max-width:1320px;margin:0 auto;padding:26px 24px 70px;
+  display:grid;grid-template-columns:262px minmax(0,1fr) 370px;gap:18px;align-items:start}
+@media(max-width:1180px){main{grid-template-columns:230px minmax(0,1fr)}
+  .sendcol{grid-column:1 / -1}}
+@media(max-width:820px){main{grid-template-columns:1fr;padding:20px 16px 50px}
+  .band{padding:10px 16px} .tagline{display:none}}
+
+h1{font:700 22px/1.25 var(--display);letter-spacing:-.4px;margin-bottom:5px}
+.lede{color:var(--ink-2);font-size:13px;margin-bottom:16px;max-width:66ch}
+.mini-h{font:600 10px var(--ui);letter-spacing:1.1px;text-transform:uppercase;color:var(--ink-3);
+  margin:0 0 9px}
+
+/* branch picker */
+.branch{display:block;width:100%;text-align:left;background:var(--surface);
+  border:1px solid var(--line);border-left:3px solid var(--line-firm);border-radius:9px;
+  padding:11px 13px;margin-bottom:8px;cursor:pointer;color:inherit;font:inherit;
+  transition:border-color .12s,background .12s}
+.branch:hover{background:var(--surface-2)}
+.branch.sel{border-color:var(--brand);border-left-color:var(--brand);background:var(--brand-wash)}
+.branch.governed{border-left-color:var(--pass)}
+.branch.breaching{border-left-color:var(--block)}
+.branch.unknown{border-left-color:var(--unknown)}
+.branch .d{font:600 9.5px var(--ui);letter-spacing:.9px;text-transform:uppercase;color:var(--ink-3)}
+.branch .n{font:600 13.5px var(--display);margin:2px 0 3px}
+.branch .m{font-size:11px;color:var(--ink-3);display:flex;justify-content:space-between;gap:8px}
+.branch .m b{font:500 11px var(--mono);color:var(--ink-2)}
+.badge{display:inline-block;font:600 9px var(--ui);letter-spacing:.7px;text-transform:uppercase;
+  border-radius:999px;padding:2px 7px;margin-top:6px}
+.badge.critical,.badge.exhausted{background:var(--block-wash);color:var(--block)}
+.badge.warning{background:var(--escalate-wash);color:var(--escalate)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;
+  margin-bottom:14px}
+.who{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.who h2{font:700 19px var(--display);letter-spacing:-.3px}
+.who .sub{font-size:12.5px;color:var(--ink-3);margin-top:3px}
+.who .mail{font:400 12px var(--mono);color:var(--ink-3)}
+.edit{background:none;border:1px solid var(--line-firm);color:var(--ink-3);border-radius:999px;
+  font:500 10px var(--ui);padding:2px 9px;margin-left:8px;cursor:pointer;vertical-align:1px}
+.edit:hover{border-color:var(--brand);color:var(--brand)}
+#ownerform{margin-top:10px;display:none;gap:8px;grid-template-columns:1fr 1fr auto auto;
+  align-items:center}
+#ownerform.on{display:grid}
+@media(max-width:700px){#ownerform.on{grid-template-columns:1fr}}
+#ownerform input{font-size:12.5px;padding:7px 10px}
+#ownerform button{font:600 11.5px var(--ui);padding:7px 13px;border-radius:7px;border:none;
+  cursor:pointer;background:var(--brand);color:var(--on-brand);white-space:nowrap}
+#ownerform button.x{background:transparent;color:var(--ink-3);border:1px solid var(--line-firm)}
+.stat{font:600 9.5px var(--ui);letter-spacing:.9px;text-transform:uppercase;border-radius:999px;
+  padding:4px 10px;margin-left:auto}
+.stat.governed{background:var(--pass-wash);color:var(--pass)}
+.stat.breaching{background:var(--block-wash);color:var(--block)}
+.stat.unknown{background:var(--unknown-wash);color:var(--unknown)}
+
+.fc{border-radius:10px;padding:14px 16px;margin:15px 0 0;border:1px solid var(--line)}
+.fc.critical,.fc.exhausted{border-color:var(--block);background:var(--block-wash)}
+.fc.warning{border-color:var(--escalate);background:var(--escalate-wash)}
+.fc .k{font:700 10px var(--ui);letter-spacing:.9px;text-transform:uppercase;color:var(--ink-3)}
+.fc.critical .k,.fc.exhausted .k{color:var(--block)}
+.fc.warning .k{color:var(--escalate)}
+.fc .v{font:700 20px/1.3 var(--display);margin-top:5px;letter-spacing:-.3px}
+.fc .n{font-size:12px;color:var(--ink-2);margin-top:6px}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:14px}
+@media(max-width:560px){.stats{grid-template-columns:1fr}}
+/* > matters: without it every .k, .v, .s and .bar inside also gets a box */
+.stats>div{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:11px 13px}
+.stats .k{font-size:9.5px;letter-spacing:.9px;text-transform:uppercase;color:var(--ink-3)}
+.stats .v{font:700 17px var(--display);margin-top:3px}
+.stats .s{font-size:11px;color:var(--ink-3);margin-top:1px}
+.bar{height:4px;border-radius:99px;background:var(--surface-3);overflow:hidden;margin-top:7px}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--pass)}
+.bar i.w{background:var(--escalate)} .bar i.b{background:var(--block)}
+
+.adv{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--ink-3);
+  border-radius:10px;padding:15px 17px;margin-bottom:11px}
+.adv.high{border-left-color:var(--block)}
+.adv.medium{border-left-color:var(--escalate)}
+.adv.low{border-left-color:var(--pass)}
+.adv .sev{font:700 9.5px var(--ui);letter-spacing:.9px;text-transform:uppercase;color:var(--ink-3)}
+.adv.high .sev{color:var(--block)} .adv.medium .sev{color:var(--escalate)}
+.adv .t{font:600 14.5px/1.5 var(--display);margin:4px 0 11px}
+.fix{background:var(--brand-wash);border-left:3px solid var(--brand);border-radius:0 7px 7px 0;
+  padding:11px 13px;margin-bottom:9px}
+.fix .k{font:700 9.5px var(--ui);letter-spacing:.8px;text-transform:uppercase;color:var(--brand)}
+.fix .v{font-size:13px;line-height:1.55;margin-top:4px}
+.fix .d{font-size:12px;line-height:1.55;color:var(--ink-3);margin-top:5px}
+.imp{font-size:12.5px;line-height:1.5;color:var(--ink-2)}
+.imp b{color:var(--ink)}
+.rule{font:400 10.5px/1.6 var(--mono);color:var(--ink-3);margin-top:9px;
+  word-break:break-all;overflow-wrap:anywhere}
+.none{border:1px dashed var(--pass);background:var(--pass-wash);color:var(--pass);
+  border-radius:10px;padding:16px;font-size:13.5px}
+
+/* send */
+.sendcol .card{position:sticky;top:18px}
+label{display:block;font:600 9.5px var(--ui);letter-spacing:.9px;text-transform:uppercase;
+  color:var(--ink-3);margin:13px 0 5px}
+input,textarea{background:var(--surface-2);border:1px solid var(--line-firm);color:var(--ink);
+  font:400 13px var(--ui);border-radius:8px;padding:9px 11px;width:100%}
+input:focus,textarea:focus{outline:2px solid var(--brand);outline-offset:-1px}
+textarea{resize:vertical;min-height:62px}
+.hint{font-size:11px;color:var(--ink-3);margin-top:5px;line-height:1.5}
+button.act{background:var(--brand);color:var(--on-brand);border:none;border-radius:8px;
+  font:600 13px var(--ui);padding:11px 15px;cursor:pointer;width:100%;margin-top:13px}
+button.act.ghost{background:transparent;color:var(--ink-2);border:1px solid var(--line-firm)}
+button.act:disabled{opacity:.5;cursor:default}
+.box{border:1px solid var(--line);border-radius:9px;padding:11px 13px;font-size:12.5px;
+  line-height:1.55;margin-top:12px;color:var(--ink-2)}
+.box.ok{border-color:var(--pass);background:var(--pass-wash)} .box.ok b{color:var(--pass)}
+.box.bad{border-color:var(--block);background:var(--block-wash)} .box.bad b{color:var(--block)}
+.box.warn{border-color:var(--escalate);background:var(--escalate-wash)} .box.warn b{color:var(--escalate)}
+.prev{border:1px solid var(--line);border-radius:9px;margin-top:12px;overflow:hidden;background:#fff}
+.prev iframe{width:100%;height:440px;border:0;display:block;background:#fff}
+.prevh{font:600 9.5px var(--ui);letter-spacing:.9px;text-transform:uppercase;color:var(--ink-3);
+  padding:8px 11px;background:var(--surface-2);border-bottom:1px solid var(--line)}
+</style>
+</head>
+<body>
+
+<div class="band">
+  <div class="mark">Control<i>Plane</i></div>
+  <div class="tagline">Advisories &amp; owner briefings</div>
+  <div class="right">
+    <span class="pill" id="transport">transport —</span>
+    <a class="tgl" href="/">Portfolio</a>
+    <a class="tgl" href="/console">Mission Control</a>
+    <a class="tgl" href="/review">Review</a>
+    <a class="tgl on" href="/advisor">Advisories</a>
+    <a class="tgl" href="/developer">Developer</a>
+    <button class="tgl" id="theme">Light</button>
+  </div>
+</div>
+
+<main>
+  <div>
+    <h1 style="font-size:15px;margin-bottom:12px">Branches</h1>
+    <div id="branches"></div>
+  </div>
+
+  <div>
+    <div id="brief"><p class="lede">Loading…</p></div>
+  </div>
+
+  <div class="sendcol">
+    <div class="card">
+      <div class="mini-h">Send this briefing</div>
+      <p class="hint" style="margin-top:0">The owner does not watch a dashboard.
+        This sends them what is above — the problem, the fix, and what happens if
+        nothing changes.</p>
+
+      <label for="to">Recipients</label>
+      <input id="to" type="text" placeholder="name@example.com, second@example.com"
+             autocomplete="off" spellcheck="false"/>
+      <div class="hint">Comma-separated, up to five. Nothing is stored in the code —
+        type the address at the moment you send.</div>
+
+      <label for="note">Note (optional)</label>
+      <textarea id="note" placeholder="A line of context for the owner."></textarea>
+
+      <button class="act ghost" id="preview">Preview the email</button>
+      <button class="act" id="send">Send to owner</button>
+      <div id="result"></div>
+      <div id="previewbox"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money = n => '₹' + Math.round(n || 0).toLocaleString('en-IN');
+
+function applyTheme(t){ document.documentElement.setAttribute('data-theme', t);
+  $('#theme').textContent = t === 'dark' ? 'Light' : 'Dark';
+  try{ localStorage.setItem('cp-theme', t); }catch(e){} }
+let th = 'dark'; try{ th = localStorage.getItem('cp-theme') || 'dark'; }catch(e){}
+applyTheme(th);
+$('#theme').onclick = () => applyTheme(
+  document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+
+const DEFAULT_ACTOR = 'Arun Mehta';
+function actor(){ try{ return sessionStorage.getItem('cp-actor') || DEFAULT_ACTOR; }
+  catch(e){ return DEFAULT_ACTOR; } }
+function opHeaders(){
+  return {'content-type':'application/json',
+          'X-ControlPlane-Actor': actor(),
+          'X-ControlPlane-Token': (window.CP_TOKEN || 'operator-dev-token')};
+}
+
+let SYSTEMS = [], current = null;
+const barClass = p => p >= 100 ? 'b' : p >= 70 ? 'w' : '';
+
+function renderBranches(){
+  $('#branches').innerHTML = SYSTEMS.map(s => `
+    <button class="branch ${s.status}${s.systemId === current ? ' sel' : ''}"
+            data-s="${esc(s.systemId)}">
+      <div class="d">${esc(s.department)}</div>
+      <div class="n">${esc(s.name)}</div>
+      <div class="m"><span>${esc(s.owner)}</span><b>${s.budgetUsedPct}%</b></div>
+      ${s.forecastState && s.forecastState !== 'comfortable' && s.forecastState !== 'unknown'
+        ? `<span class="badge ${s.forecastState}">${s.forecastState === 'exhausted'
+            ? 'over budget' : s.forecastDays + ' days left'}</span>` : ''}
+    </button>`).join('');
+  $('#branches').querySelectorAll('.branch').forEach(el =>
+    el.onclick = () => { current = el.dataset.s; renderBranches(); load(current); });
+}
+
+function forecastCard(f){
+  if (!f || !f.observable){
+    return `<div class="fc"><div class="k">Budget forecast</div>
+      <div class="n">${esc((f && f.reason) || 'not enough history to project a rate')}</div></div>`;
+  }
+  const head = f.state === 'exhausted'
+    ? `Over budget by ${money(Math.abs(f.remainingInr))}`
+    : f.daysLeft === null ? 'No spend observed'
+    : `${f.daysLeft.toFixed(0)} days of budget left${f.exhaustsOn ? ' — ' + esc(f.exhaustsOn) : ''}`;
+  return `<div class="fc ${esc(f.state)}">
+    <div class="k">Budget forecast · ${esc(f.trend)} trend</div>
+    <div class="v">${head}</div>
+    <div class="n">About <b>${money(f.perDayInr)} a day</b>. Projected month-end
+      <b>${money(f.projectedMonthInr)}</b> against a ${money(f.budgetInr)} budget
+      (${f.projectedPct}%). Rate is month-to-date spend over ${f.daysElapsed} days
+      elapsed; ${f.decisions} decisions observed across ${f.observedWindowDays} days.</div>
+  </div>`;
+}
+
+function advisoryCard(a){
+  return `<div class="adv ${esc(a.severity)}">
+    <div class="sev">${esc(a.severity)}</div>
+    <div class="t">${esc(a.text)}</div>
+    ${a.fix ? `<div class="fix"><div class="k">What to change</div>
+      <div class="v">${esc(a.fix)}</div>
+      ${a.fixDetail ? `<div class="d">${esc(a.fixDetail)}</div>` : ''}</div>` : ''}
+    ${a.impact ? `<div class="imp"><b>If nothing changes:</b> ${esc(a.impact)}</div>` : ''}
+    <div class="rule">rule ${esc(a.ruleId)} v${esc(a.ruleVersion)} ·
+      ${esc(a.derivation)} · evidence ${esc(JSON.stringify(a.evidence))}</div>
+  </div>`;
+}
+
+async function load(id){
+  const b = await fetch('/api/advisories/' + encodeURIComponent(id), {headers: opHeaders()}).then(r => r.json());
+  if (b.detail){ $('#brief').innerHTML = `<div class="box bad">${esc(b.detail)}</div>`; return; }
+  const bp = Math.min(100, b.budgetUsedPct), rp = Math.min(100, b.reviewUsedPct);
+  $('#brief').innerHTML = `
+    <div class="card">
+      <div class="who">
+        <div style="flex:1;min-width:0"><h2>${esc(b.name)}</h2>
+          <div class="sub" id="ownerline">
+            <b style="color:var(--ink-2);font-weight:600">${esc(b.owner)}</b>
+            ${b.ownerEmail ? ' · <span class="mail">' + esc(b.ownerEmail) + '</span>' : ''}
+            · ${esc(b.department)}
+            <button class="edit" id="editowner" title="Change the owner or their address">edit</button>
+          </div>
+          <div id="ownerform"></div></div>
+        <span class="stat ${b.status}">${b.status === 'unknown' ? 'no signal' : esc(b.status)}</span>
+      </div>
+      ${forecastCard(b.forecast)}
+      <div class="stats">
+        <div><div class="k">Spend this month</div>
+          <div class="v">${money(b.spendInr)}</div>
+          <div class="s">of ${money(b.budgetInr)} · ${b.budgetUsedPct}%</div>
+          <div class="bar"><i class="${barClass(b.budgetUsedPct)}" style="width:${bp}%"></i></div></div>
+        <div><div class="k">Reviewer time</div>
+          <div class="v">${Math.round(b.reviewMinutes)} min</div>
+          <div class="s">of ${Math.round(b.reviewBudgetMinutes)} · ${b.reviewUsedPct}%</div>
+          <div class="bar"><i class="${barClass(b.reviewUsedPct)}" style="width:${rp}%"></i></div></div>
+        <div><div class="k">Decisions governed</div>
+          <div class="v">${b.decisions}</div>
+          <div class="s">exposure ${b.exposurePer100}/100 requests</div></div>
+      </div>
+    </div>
+    <div class="mini-h">What needs ${esc((b.owner || '').split(' ')[0])}'s attention
+      · ${b.advisories.length}</div>
+    ${b.advisories.length ? b.advisories.map(advisoryCard).join('')
+      : `<div class="none">Nothing needs attention on this system right now.</div>`}`;
+
+  // the recipient box follows the owner on record, and stays editable
+  if (!$('#to').dataset.touched) $('#to').value = b.ownerEmail || '';
+  wireOwnerEditor(b);
+}
+
+function wireOwnerEditor(b){
+  const form = $('#ownerform');
+  $('#editowner').onclick = () => {
+    form.className = form.className === 'on' ? '' : 'on';
+    if (form.className === 'on'){
+      form.innerHTML = `
+        <input id="oname" value="${esc(b.owner)}" placeholder="Owner name"/>
+        <input id="omail" value="${esc(b.ownerEmail || '')}" placeholder="owner@company.com"
+               autocomplete="off" spellcheck="false"/>
+        <button id="osave">Save</button>
+        <button class="x" id="ocancel">Cancel</button>`;
+      $('#ocancel').onclick = () => { form.className = ''; form.innerHTML = ''; };
+      $('#osave').onclick = async () => {
+        const r = await fetch('/api/owner', {method:'POST', headers: opHeaders(),
+          body: JSON.stringify({systemId: b.systemId, owner: $('#oname').value,
+                                ownerEmail: $('#omail').value})});
+        if (!r.ok){
+          form.innerHTML = `<div class="box bad" style="grid-column:1/-1">
+            ${esc((await r.json()).detail || 'could not save')}</div>`;
+          return;
+        }
+        form.className = ''; form.innerHTML = '';
+        delete $('#to').dataset.touched;
+        await loadBranches();
+      };
+    }
+  };
+}
+
+async function loadBranches(){
+  const f = await fetch('/api/fleet').then(r => r.json());
+  const rank = {unknown: 0, breaching: 1, governed: 2};
+  SYSTEMS = [...f.systems].sort((a, b) =>
+    (rank[a.status] ?? 9) - (rank[b.status] ?? 9) || b.budgetUsedPct - a.budgetUsedPct);
+  // the forecast badge needs one call per system; five systems, once per load
+  await Promise.all(SYSTEMS.map(async s => {
+    try{
+      const b = await fetch('/api/advisories/' + encodeURIComponent(s.systemId), {headers: opHeaders()})
+        .then(r => r.json());
+      s.forecastState = (b.forecast || {}).state;
+      s.forecastDays = (b.forecast || {}).daysLeft;
+    }catch(e){}
+  }));
+  if (!current) current = (SYSTEMS.find(s => s.forecastState === 'critical')
+    || SYSTEMS.find(s => s.status === 'breaching') || SYSTEMS[0] || {}).systemId;
+  renderBranches();
+  if (current) await load(current);
+}
+
+/* ------------------------------------------------------------------ send --- */
+/* srcdoc, not document.write: the frame is fully sandboxed so no script in the
+   briefing can run, and a sandboxed frame cannot be written to from here. */
+function showPreview(subject, html){
+  $('#previewbox').innerHTML = `<div class="prev">
+    <div class="prevh">${esc(subject)}</div>
+    <iframe sandbox="" id="pf" title="Email preview"></iframe></div>`;
+  $('#pf').setAttribute('srcdoc', html);
+}
+
+$('#to').addEventListener('input', () => { $('#to').dataset.touched = '1'; });
+
+function recipients(){
+  return $('#to').value.split(',').map(x => x.trim()).filter(Boolean);
+}
+
+$('#preview').onclick = async () => {
+  const r = await fetch('/api/notify/preview', {method:'POST',
+    headers:{'content-type':'application/json'},
+    body: JSON.stringify({systemId: current, to: [], note: $('#note').value})})
+    .then(x => x.json());
+  showPreview(r.subject, r.html);
+};
+
+$('#send').onclick = async () => {
+  const to = recipients();
+  const btn = $('#send');
+  if (!to.length){
+    $('#result').innerHTML = `<div class="box warn"><b>No recipient.</b>
+      Type at least one email address above.</div>`;
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Sending…';
+  $('#result').innerHTML = '';
+  try{
+    const r = await fetch('/api/notify', {method:'POST', headers: opHeaders(),
+      body: JSON.stringify({systemId: current, to, note: $('#note').value})});
+    if (!r.ok){
+      $('#result').innerHTML = `<div class="box bad"><b>HTTP ${r.status}.</b>
+        ${esc(await r.text())}</div>`;
+      return;
+    }
+    const d = await r.json();
+    $('#result').innerHTML = d.ok
+      ? `<div class="box ok"><b>Sent to ${esc(d.recipients.join(', '))}.</b><br>
+         ${d.advisories} advisor${d.advisories === 1 ? 'y' : 'ies'} for ${esc(d.owner)},
+         via ${esc(d.transport)}. Recorded in the ledger at entry
+         ${esc(String(d.ledgerIndex))} — the notification is itself a governed action.</div>`
+      : `<div class="box bad"><b>Not delivered.</b> ${esc(d.detail)}<br>
+         The attempt is recorded at ledger entry ${esc(String(d.ledgerIndex))}. A warning
+         that silently failed to arrive is exactly what this system refuses to hide.</div>`;
+    if (d.html) showPreview(d.subject, d.html);
+  }catch(e){
+    $('#result').innerHTML = `<div class="box bad"><b>Request failed.</b> ${esc(e.message)}</div>`;
+  }finally{ btn.disabled = false; btn.textContent = 'Send to owner'; }
+};
+
+(async function boot(){
+  try{
+    const c = await fetch('/api/notify/config').then(r => r.json());
+    $('#transport').textContent = c.ready
+      ? 'email · ' + (c.transports || [c.transport]).join(' → ')
+      : 'email not configured';
+    $('#transport').title = c.ready
+      ? 'Sending as ' + c.from + (c.note ? ' — ' + c.note : '')
+      : c.note;
+    if (!c.ready){
+      $('#result').innerHTML = `<div class="box warn"><b>No email transport configured.</b>
+        Send will compose the briefing and record the attempt, but nothing will leave this
+        machine. Set the transport in <code>.env</code> — see RUN_IT.md.</div>`;
+    }
+  }catch(e){}
+  await loadBranches();
+  setInterval(loadBranches, 15000);
+})();
+</script>
+</body>
+</html>
